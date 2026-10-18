@@ -144,7 +144,13 @@ func refresh_hit_polygon() -> void:
 
 func save_and_quit() -> void:
 	_save_config()
-	get_tree().quit()
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return
+	# SceneTree.quit() does not emit NOTIFICATION_WM_CLOSE_REQUEST.
+	# Session saves from that notification, so deliver it before quitting.
+	tree.root.propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST)
+	tree.quit()
 
 
 func _finish_startup() -> void:

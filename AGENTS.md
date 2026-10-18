@@ -27,6 +27,7 @@ res://
   scenes/boot/main.tscn       # main scene
   scenes/<feature>/           # one folder per feature scene
   scripts/dock/               # window and strip chrome
+  scripts/hud/                # championship strip and phase blocks
   sim/                        # RefCounted rules, no Node subclass
   data/                       # .tres catalogs
   ui/                         # Theme and controls reused across phases

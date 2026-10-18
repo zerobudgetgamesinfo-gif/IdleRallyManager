@@ -1,6 +1,22 @@
 [gd_scene format=3 uid="uid://bfyj345hnata"]
 
 [ext_resource type="Script" uid="uid://bty4lbvhc2587" path="res://scripts/boot/main.gd" id="1_main"]
+[ext_resource type="PackedScene" uid="uid://b8khm3scene01" path="res://scenes/hud/strip.tscn" id="2_hud"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_strip"]
+bg_color = Color(0.176, 0.149, 0.118, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.855, 0.624, 0.29, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+anti_aliasing = false
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_height"]
 
 [node name="Main" type="Control" unique_id=667885384]
 layout_mode = 3
@@ -9,4 +25,144 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("1_main")
+
+[node name="Strip" type="Panel" parent="." unique_id=191293122]
+unique_name_in_owner = true
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_strip")
+
+[node name="HudStrip" parent="Strip" unique_id=341347385 instance=ExtResource("2_hud")]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 12.0
+offset_top = 16.0
+offset_right = -12.0
+offset_bottom = -12.0
+
+[node name="MouseDragHandle" type="Control" parent="Strip" unique_id=1309289751]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 12.0
+offset_right = -116.0
+offset_bottom = 16.0
+grow_horizontal = 2
+mouse_default_cursor_shape = 13
+
+[node name="Grip" type="ColorRect" parent="Strip/MouseDragHandle" unique_id=1630168286]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -24.0
+offset_top = -2.0
+offset_right = 24.0
+offset_bottom = 2.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.855, 0.624, 0.29, 0.95)
+
+[node name="SettingsButton" type="Button" parent="Strip" unique_id=1257795482]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -108.0
+offset_right = -12.0
+offset_bottom = 28.0
+grow_horizontal = 0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "Settings"
+
+[node name="SettingsPanel" type="PanelContainer" parent="Strip" unique_id=367183153]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -100.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="SettingsRow" type="HFlowContainer" parent="Strip/SettingsPanel" unique_id=2001826763]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+
+[node name="Height" type="Label" parent="Strip/SettingsPanel/SettingsRow" unique_id=320811174]
+layout_mode = 2
+text = "Height"
+vertical_alignment = 1
+
+[node name="Compact" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=1486449019]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_height")
+text = "Compact"
+
+[node name="Cozy" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=941394962]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_height")
+text = "Cozy"
+
+[node name="AlwaysOnTop" type="CheckBox" parent="Strip/SettingsPanel/SettingsRow" unique_id=2092466887]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Always on top"
+
+[node name="PauseButton" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=1017548892]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "Pause"
+
+[node name="AbandonButton" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=340520078]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "Abandon"
+
+[node name="QuitButton" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=1250109319]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "Quit"
