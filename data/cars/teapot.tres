@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CarDef" format=3]
+
+[ext_resource type="Script" path="res://data/car_def.gd" id="1_6pq6q"]
+
+[resource]
+script = ExtResource("1_6pq6q")
+id = "teapot"
+display_name = "Teapot"
+cost = 2
+pace = 3
+grip = 5
+jump = 2
+reliability = 8
+focus = 1

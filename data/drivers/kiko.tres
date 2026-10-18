@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="DriverDef" format=3]
+
+[ext_resource type="Script" path="res://data/driver_def.gd" id="1_oynwo"]
+
+[resource]
+script = ExtResource("1_oynwo")
+id = "kiko"
+display_name = "Kiko the monkey"
+cost = 5
+pace = 6
+grip = 5
+jump = 9
+reliability = 4
+focus = 5

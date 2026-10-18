@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CarDef" format=3]
+
+[ext_resource type="Script" path="res://data/car_def.gd" id="1_51g7k"]
+
+[resource]
+script = ExtResource("1_51g7k")
+id = "mudbug"
+display_name = "Mudbug"
+cost = 5
+pace = 5
+grip = 9
+jump = 4
+reliability = 6

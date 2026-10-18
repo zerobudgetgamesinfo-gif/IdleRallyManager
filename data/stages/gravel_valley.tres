@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="StageDef" format=3 uid="uid://cfqtkvli8a1sr"]
+
+[ext_resource type="Script" uid="uid://b1sctmry288pn" path="res://data/stage_beat.gd" id="1_lyh7j"]
+[ext_resource type="Script" uid="uid://baad6lff3jduu" path="res://data/stage_def.gd" id="2_e7he1"]
+
+[sub_resource type="Resource" id="Resource_sv6yc"]
+script = ExtResource("1_lyh7j")
+t_norm = 0.15
+kind = "slide"
+stat = "grip"
+
+[sub_resource type="Resource" id="Resource_nmcfi"]
+script = ExtResource("1_lyh7j")
+t_norm = 0.4
+kind = "jump"
+stat = "jump"
+
+[sub_resource type="Resource" id="Resource_ue2lu"]
+script = ExtResource("1_lyh7j")
+t_norm = 0.65
+kind = "straight"
+stat = "pace"
+
+[sub_resource type="Resource" id="Resource_gypg1"]
+script = ExtResource("1_lyh7j")
+t_norm = 0.85
+kind = "hazard"
+stat = "focus"
+
+[resource]
+script = ExtResource("2_e7he1")
+id = "gravel_valley"
+display_name = "Gravel Valley"
+surface = "gravel"
+pace_weight = 0.15
+grip_weight = 0.45
+jump_weight = 0.1
+reliability_weight = 0.15
+focus_weight = 0.15
+base_time_sec = 720
+beats = Array[ExtResource("1_lyh7j")]([SubResource("Resource_sv6yc"), SubResource("Resource_nmcfi"), SubResource("Resource_ue2lu"), SubResource("Resource_gypg1")])

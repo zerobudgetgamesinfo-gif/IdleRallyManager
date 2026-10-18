@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/card_def.gd" id="1_sbcen"]
+
+[resource]
+script = ExtResource("1_sbcen")
+id = "safe_grip"
+label = "Check the pressures"
+grip = 1
+safe = true

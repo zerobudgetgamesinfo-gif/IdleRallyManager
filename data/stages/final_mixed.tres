@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="StageDef" format=3 uid="uid://cl84exqu6b1qk"]
+
+[ext_resource type="Script" uid="uid://b1sctmry288pn" path="res://data/stage_beat.gd" id="1_q73gv"]
+[ext_resource type="Script" uid="uid://baad6lff3jduu" path="res://data/stage_def.gd" id="2_jpfie"]
+
+[sub_resource type="Resource" id="Resource_mg2bh"]
+script = ExtResource("1_q73gv")
+t_norm = 0.15
+kind = "slide"
+stat = "grip"
+
+[sub_resource type="Resource" id="Resource_u6yb7"]
+script = ExtResource("1_q73gv")
+t_norm = 0.4
+kind = "jump"
+stat = "jump"
+
+[sub_resource type="Resource" id="Resource_4ldac"]
+script = ExtResource("1_q73gv")
+t_norm = 0.65
+kind = "straight"
+stat = "pace"
+
+[sub_resource type="Resource" id="Resource_awuqo"]
+script = ExtResource("1_q73gv")
+t_norm = 0.85
+kind = "hazard"
+stat = "focus"
+
+[resource]
+script = ExtResource("2_jpfie")
+id = "final_mixed"
+display_name = "Final Mixed"
+surface = "gravel"
+pace_weight = 0.2
+grip_weight = 0.2
+jump_weight = 0.2
+reliability_weight = 0.2
+focus_weight = 0.2
+base_time_sec = 860
+beats = Array[ExtResource("1_q73gv")]([SubResource("Resource_mg2bh"), SubResource("Resource_u6yb7"), SubResource("Resource_4ldac"), SubResource("Resource_awuqo")])

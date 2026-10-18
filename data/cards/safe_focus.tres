@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/card_def.gd" id="1_xa4ac"]
+
+[resource]
+script = ExtResource("1_xa4ac")
+id = "safe_focus"
+label = "Read the road book"
+focus = 1
+safe = true

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CarDef" format=3]
+
+[ext_resource type="Script" path="res://data/car_def.gd" id="1_yvqev"]
+
+[resource]
+script = ExtResource("1_yvqev")
+id = "wagon"
+display_name = "Wagon"
+cost = 4
+pace = 6
+grip = 6
+jump = 4
+reliability = 6
+focus = 1

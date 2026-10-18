@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/card_def.gd" id="1_ci1i4"]
+
+[resource]
+script = ExtResource("1_ci1i4")
+id = "safe_rel"
+label = "Top up the fluids"
+reliability = 1
+safe = true

@@ -24,6 +24,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Dock="*res://scripts/dock/dock.gd"
+Session="*res://sim/session.gd"
 
 [display]
 

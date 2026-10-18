@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="StageDef" format=3 uid="uid://d1wxpyafhkxtn"]
+
+[ext_resource type="Script" uid="uid://b1sctmry288pn" path="res://data/stage_beat.gd" id="1_npro1"]
+[ext_resource type="Script" uid="uid://baad6lff3jduu" path="res://data/stage_def.gd" id="2_xcwp1"]
+
+[sub_resource type="Resource" id="Resource_04w32"]
+script = ExtResource("1_npro1")
+t_norm = 0.15
+kind = "slide"
+stat = "grip"
+
+[sub_resource type="Resource" id="Resource_k050e"]
+script = ExtResource("1_npro1")
+t_norm = 0.4
+kind = "jump"
+stat = "jump"
+
+[sub_resource type="Resource" id="Resource_a3lvw"]
+script = ExtResource("1_npro1")
+t_norm = 0.65
+kind = "straight"
+stat = "pace"
+
+[sub_resource type="Resource" id="Resource_yx1xa"]
+script = ExtResource("1_npro1")
+t_norm = 0.85
+kind = "hazard"
+stat = "focus"
+
+[resource]
+script = ExtResource("2_xcwp1")
+id = "night_forest"
+display_name = "Night Forest"
+surface = "gravel"
+pace_weight = 0.1
+grip_weight = 0.25
+jump_weight = 0.1
+reliability_weight = 0.15
+focus_weight = 0.4
+base_time_sec = 780
+beats = Array[ExtResource("1_npro1")]([SubResource("Resource_04w32"), SubResource("Resource_k050e"), SubResource("Resource_a3lvw"), SubResource("Resource_yx1xa")])

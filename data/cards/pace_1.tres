@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/card_def.gd" id="1_q7h3j"]
+
+[resource]
+script = ExtResource("1_q7h3j")
+id = "pace_1"
+label = "Open the exhaust"
+pace = 1

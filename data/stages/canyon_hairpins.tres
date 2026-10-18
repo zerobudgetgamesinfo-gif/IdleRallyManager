@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="StageDef" format=3 uid="uid://b1q8g12betjqk"]
+
+[ext_resource type="Script" uid="uid://b1sctmry288pn" path="res://data/stage_beat.gd" id="1_57wao"]
+[ext_resource type="Script" uid="uid://baad6lff3jduu" path="res://data/stage_def.gd" id="2_xmonb"]
+
+[sub_resource type="Resource" id="Resource_u3661"]
+script = ExtResource("1_57wao")
+t_norm = 0.15
+kind = "slide"
+stat = "grip"
+
+[sub_resource type="Resource" id="Resource_4pn7r"]
+script = ExtResource("1_57wao")
+t_norm = 0.4
+kind = "jump"
+stat = "jump"
+
+[sub_resource type="Resource" id="Resource_3ffwc"]
+script = ExtResource("1_57wao")
+t_norm = 0.65
+kind = "straight"
+stat = "pace"
+
+[sub_resource type="Resource" id="Resource_k73dm"]
+script = ExtResource("1_57wao")
+t_norm = 0.85
+kind = "hazard"
+stat = "focus"
+
+[resource]
+script = ExtResource("2_xmonb")
+id = "canyon_hairpins"
+display_name = "Canyon Hairpins"
+surface = "tarmac"
+pace_weight = 0.15
+grip_weight = 0.35
+jump_weight = 0.25
+reliability_weight = 0.15
+focus_weight = 0.1
+base_time_sec = 740
+beats = Array[ExtResource("1_57wao")]([SubResource("Resource_u3661"), SubResource("Resource_4pn7r"), SubResource("Resource_3ffwc"), SubResource("Resource_k73dm")])

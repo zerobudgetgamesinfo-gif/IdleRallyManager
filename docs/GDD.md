@@ -410,10 +410,11 @@ A live championship replaces `null` with:
 }
 ```
 
-- `entries[]`: `id`, `driver_id`, `car_id`, `is_player`, stat block after upgrades, list of owned card ids.
-- `offers[]`: the three card ids for the open service, omitted outside service.
-- `results[]`: committed stage results, including incidents, once the reveal has finished.
-- `recap[]`: stages and defaulted cards applied during catch-up, cleared when the recap is dismissed.
+- `entries[]`: `id`, `driver_id`, `car_id`, `is_player`, stat block after upgrades (`pace`, `grip`, `jump`, `reliability`, `focus`), and `card_ids`.
+- `offers[]`: omitted outside an open service. When a recap will resume into service, the offers stay. Each offer is `entry_id`, `card_ids` (the three offered ids), `chosen_card_id` (the player's current pick, empty until they choose), and `ai_card_id` (the rival's pick, stored when the service opens, empty on the player).
+- `results[]`: committed stage results, including incidents, once the reveal has finished. The open reveal is solved again from the saved seed and stats if the app closed mid-reveal.
+- `recap[]`: `{stage_index, card_id, applied_by}` for a defaulted card. `stage_index` is the stage that card was bought for. Cleared when the recap is dismissed.
+- `resume_phase`: written only while `phase` is `recap`. Dismiss returns to it (`stage_reveal`, `service`, or `finished`).
 - `phase_started_unix` is seconds. Remaining time is `duration - (now - phase_started_unix) * time_scale`, and while paused the formula uses `pause_started_unix` in place of `now`.
 
 Load rules:

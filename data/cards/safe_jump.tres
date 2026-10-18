@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/card_def.gd" id="1_i5ub3"]
+
+[resource]
+script = ExtResource("1_i5ub3")
+id = "safe_jump"
+label = "Tape the sump"
+jump = 1
+safe = true

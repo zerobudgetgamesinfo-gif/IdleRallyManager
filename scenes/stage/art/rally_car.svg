@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 188" width="400" height="188" role="img">
+	<title>Rally car</title>
+	<desc>Side-view rally car. Recolor by changing the fill on each group: body, stripe, glass, decal, light, tail, tire, rim. Ink and shadow are hardware and contact, not livery.</desc>
+	<!--
+		Recolor the car here. Every shape in a group inherits that fill.
+
+		body   #e25a3c  panels, scoop, wing endplate
+		stripe #f3c15a  belt, wing, mirror, lamp pod, roundel ring
+		glass  #3e5168  windows
+		decal  #fffdf8  number board
+		light  #fff6d2  headlamp and spot lamps
+		tail   #ff9a3c  rear lamp
+		tire   #2a2725  tires and mudflaps
+		rim    #f3eee4  wheel faces
+		ink    #2a2725  hubs, number, exhaust
+	-->
+	<g id="shadow" fill="#2a2725" opacity="0.16">
+		<ellipse cx="214" cy="176" rx="148" ry="6"/>
+	</g>
+	<g id="tire" fill="#2a2725">
+		<circle cx="118" cy="138" r="36"/>
+		<circle cx="300" cy="138" r="36"/>
+		<rect x="70" y="128" width="14" height="28" rx="3"/>
+		<rect x="248" y="128" width="14" height="28" rx="3"/>
+	</g>
+	<g id="rim" fill="#f3eee4">
+		<circle cx="118" cy="138" r="18"/>
+		<circle cx="300" cy="138" r="18"/>
+		<circle cx="112" cy="132" r="7" fill="#ffffff" opacity="0.55"/>
+		<circle cx="294" cy="132" r="7" fill="#ffffff" opacity="0.55"/>
+	</g>
+	<g id="body" fill="#e25a3c">
+		<path d="M58 138C42 136 36 122 44 108C50 94 56 78 72 64C92 46 122 36 162 32C206 28 250 32 280 44C302 54 320 62 338 72C356 82 370 94 374 110C378 126 364 138 346 138H334C334 119.2 318.8 104 300 104C281.2 104 266 119.2 266 138H152C152 119.2 136.8 104 118 104C99.2 104 84 119.2 84 138Z"/>
+		<path d="M176 36Q210 0 244 36Z"/>
+		<rect x="4" y="48" width="14" height="34" rx="4"/>
+	</g>
+	<g id="glass" fill="#3e5168">
+		<path d="M106 96C114 74 132 58 154 54L148 80C132 82 114 90 104 102Z"/>
+		<path d="M170 58C200 46 234 46 262 58L254 92C222 82 190 82 166 94Z"/>
+		<path d="M270 66C284 56 298 64 306 78L296 90L266 80Z"/>
+	</g>
+	<g id="shine" fill="#ffffff" opacity="0.28">
+		<path d="M182 56C206 50 234 50 252 58C228 54 200 54 180 60Z"/>
+	</g>
+	<g id="stripe" fill="#f3c15a">
+		<path d="M8 54L60 66H116V80L62 80L10 68Z"/>
+		<path d="M156 112C186 100 230 100 262 110L254 124C220 116 184 116 152 126Z"/>
+		<circle cx="204" cy="114" r="16"/>
+		<path d="M286 84C296 76 316 80 314 90C304 94 290 92 286 84Z"/>
+		<rect x="328" y="78" width="30" height="16" rx="8"/>
+	</g>
+	<g id="decal" fill="#fffdf8">
+		<circle cx="204" cy="114" r="11"/>
+	</g>
+	<g id="tail" fill="#ff9a3c">
+		<rect x="58" y="82" width="14" height="18" rx="4"/>
+	</g>
+	<g id="ink" fill="#2a2725">
+		<circle cx="118" cy="138" r="6.5"/>
+		<circle cx="300" cy="138" r="6.5"/>
+		<path d="M205 105L201 110H204.2V123H208.2V105Z"/>
+		<rect x="50" y="132" width="18" height="8" rx="3"/>
+		<ellipse cx="348" cy="114" rx="15" ry="9"/>
+		<circle cx="336" cy="86" r="6.2"/>
+		<circle cx="350" cy="86" r="6.2"/>
+	</g>
+	<g id="light" fill="#fff6d2">
+		<ellipse cx="348" cy="114" rx="11" ry="6.5"/>
+		<circle cx="336" cy="86" r="4.2"/>
+		<circle cx="350" cy="86" r="4.2"/>
+	</g>
+</svg>

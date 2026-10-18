@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="DriverDef" format=3]
+
+[ext_resource type="Script" path="res://data/driver_def.gd" id="1_d6dw0"]
+
+[resource]
+script = ExtResource("1_d6dw0")
+id = "bramble"
+display_name = "Bramble the dog"
+cost = 4
+pace = 5
+grip = 8
+jump = 4
+reliability = 7
+focus = 7

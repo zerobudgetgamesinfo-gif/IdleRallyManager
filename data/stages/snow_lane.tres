@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="StageDef" format=3 uid="uid://cyv268hjsmefn"]
+
+[ext_resource type="Script" uid="uid://b1sctmry288pn" path="res://data/stage_beat.gd" id="1_8v0fy"]
+[ext_resource type="Script" uid="uid://baad6lff3jduu" path="res://data/stage_def.gd" id="2_ond5v"]
+
+[sub_resource type="Resource" id="Resource_3743y"]
+script = ExtResource("1_8v0fy")
+t_norm = 0.15
+kind = "slide"
+stat = "grip"
+
+[sub_resource type="Resource" id="Resource_ogxcb"]
+script = ExtResource("1_8v0fy")
+t_norm = 0.4
+kind = "jump"
+stat = "jump"
+
+[sub_resource type="Resource" id="Resource_5krnp"]
+script = ExtResource("1_8v0fy")
+t_norm = 0.65
+kind = "straight"
+stat = "pace"
+
+[sub_resource type="Resource" id="Resource_5v47m"]
+script = ExtResource("1_8v0fy")
+t_norm = 0.85
+kind = "hazard"
+stat = "focus"
+
+[resource]
+script = ExtResource("2_ond5v")
+id = "snow_lane"
+display_name = "Snow Lane"
+surface = "snow"
+pace_weight = 0.1
+grip_weight = 0.4
+jump_weight = 0.05
+reliability_weight = 0.3
+focus_weight = 0.15
+base_time_sec = 760
+beats = Array[ExtResource("1_8v0fy")]([SubResource("Resource_3743y"), SubResource("Resource_ogxcb"), SubResource("Resource_5krnp"), SubResource("Resource_5v47m")])

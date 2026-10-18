@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="DriverDef" format=3]
+
+[ext_resource type="Script" path="res://data/driver_def.gd" id="1_raita"]
+
+[resource]
+script = ExtResource("1_raita")
+id = "miso"
+display_name = "Miso the cat"
+cost = 6
+pace = 7
+grip = 4
+jump = 5
+reliability = 5
+focus = 9

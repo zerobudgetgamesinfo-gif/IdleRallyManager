@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="DriverDef" format=3]
+
+[ext_resource type="Script" path="res://data/driver_def.gd" id="1_mnvfq"]
+
+[resource]
+script = ExtResource("1_mnvfq")
+id = "pip"
+display_name = "Pip the pig"
+cost = 2
+pace = 3
+grip = 6
+jump = 2
+reliability = 6
+focus = 4

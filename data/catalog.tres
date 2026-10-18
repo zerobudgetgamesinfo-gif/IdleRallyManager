@@ -1,0 +1,86 @@
+[gd_resource type="Resource" script_class="Catalog" format=3 uid="uid://dgrhaqsuuyubd"]
+
+[ext_resource type="Script" uid="uid://dchj5gc8qf7mf" path="res://data/ai_pair.gd" id="1_5u5l8"]
+[ext_resource type="Script" uid="uid://ctwuklr5c7e1l" path="res://data/card_def.gd" id="2_lcsjk"]
+[ext_resource type="Resource" path="res://data/cards/pace_1.tres" id="3_vx4vr"]
+[ext_resource type="Resource" path="res://data/cards/grip_1.tres" id="4_cta3b"]
+[ext_resource type="Resource" path="res://data/cards/jump_1.tres" id="5_wwfey"]
+[ext_resource type="Resource" path="res://data/cards/focus_1.tres" id="6_rhhc8"]
+[ext_resource type="Resource" path="res://data/cards/rel_1.tres" id="7_gx03v"]
+[ext_resource type="Resource" path="res://data/cards/safe_pace.tres" id="8_dxvgn"]
+[ext_resource type="Resource" path="res://data/cards/safe_grip.tres" id="9_qdmq8"]
+[ext_resource type="Resource" path="res://data/cards/safe_jump.tres" id="10_oyiyi"]
+[ext_resource type="Resource" path="res://data/cards/safe_focus.tres" id="11_m07uu"]
+[ext_resource type="Resource" path="res://data/cards/safe_rel.tres" id="12_3onb0"]
+[ext_resource type="Script" uid="uid://bxxyqfidecv4y" path="res://data/car_def.gd" id="13_itf3g"]
+[ext_resource type="Resource" path="res://data/cars/dart.tres" id="14_8rrav"]
+[ext_resource type="Resource" path="res://data/cars/mudbug.tres" id="15_ebbrn"]
+[ext_resource type="Resource" path="res://data/cars/wagon.tres" id="16_7dp55"]
+[ext_resource type="Resource" path="res://data/cars/teapot.tres" id="17_kl665"]
+[ext_resource type="Script" uid="uid://dvl24mn022vub" path="res://data/driver_def.gd" id="18_hop4q"]
+[ext_resource type="Resource" path="res://data/drivers/miso.tres" id="19_mh6wi"]
+[ext_resource type="Resource" path="res://data/drivers/kiko.tres" id="20_t4alv"]
+[ext_resource type="Resource" path="res://data/drivers/bramble.tres" id="21_nr6ma"]
+[ext_resource type="Resource" path="res://data/drivers/pudding.tres" id="22_fm0ko"]
+[ext_resource type="Resource" path="res://data/drivers/pip.tres" id="23_jw1ee"]
+[ext_resource type="Script" uid="uid://cm8kxqoutxve0" path="res://data/catalog.gd" id="24_7lq7g"]
+[ext_resource type="Script" uid="uid://baad6lff3jduu" path="res://data/stage_def.gd" id="25_li7eu"]
+[ext_resource type="Resource" uid="uid://cfqtkvli8a1sr" path="res://data/stages/gravel_valley.tres" id="26_6lk3i"]
+[ext_resource type="Resource" uid="uid://cwa45h7ue0yy7" path="res://data/stages/coastal_tarmac.tres" id="27_r6own"]
+[ext_resource type="Resource" uid="uid://3xjif03ofn37" path="res://data/stages/ridge_jumps.tres" id="28_xkmi7"]
+[ext_resource type="Resource" uid="uid://d1wxpyafhkxtn" path="res://data/stages/night_forest.tres" id="29_b8vgd"]
+[ext_resource type="Resource" uid="uid://cyv268hjsmefn" path="res://data/stages/snow_lane.tres" id="30_dxta2"]
+[ext_resource type="Resource" uid="uid://baild0jikuwvh" path="res://data/stages/long_motorway.tres" id="31_v70pv"]
+[ext_resource type="Resource" uid="uid://b1q8g12betjqk" path="res://data/stages/canyon_hairpins.tres" id="32_ulwcb"]
+[ext_resource type="Resource" uid="uid://cl84exqu6b1qk" path="res://data/stages/final_mixed.tres" id="33_ok07u"]
+
+[sub_resource type="Resource" id="Resource_j7fk3"]
+script = ExtResource("1_5u5l8")
+entry_id = "ai_1"
+driver_id = "miso"
+car_id = "dart"
+
+[sub_resource type="Resource" id="Resource_kkrt3"]
+script = ExtResource("1_5u5l8")
+entry_id = "ai_2"
+driver_id = "kiko"
+car_id = "wagon"
+
+[sub_resource type="Resource" id="Resource_fmj7f"]
+script = ExtResource("1_5u5l8")
+entry_id = "ai_3"
+driver_id = "bramble"
+car_id = "mudbug"
+
+[sub_resource type="Resource" id="Resource_hvkc2"]
+script = ExtResource("1_5u5l8")
+entry_id = "ai_4"
+driver_id = "bramble"
+car_id = "wagon"
+
+[sub_resource type="Resource" id="Resource_0rtos"]
+script = ExtResource("1_5u5l8")
+entry_id = "ai_5"
+driver_id = "pudding"
+car_id = "teapot"
+
+[sub_resource type="Resource" id="Resource_ca5rl"]
+script = ExtResource("1_5u5l8")
+entry_id = "ai_6"
+driver_id = "pip"
+car_id = "mudbug"
+
+[sub_resource type="Resource" id="Resource_2f5p7"]
+script = ExtResource("1_5u5l8")
+entry_id = "ai_7"
+driver_id = "pudding"
+car_id = "wagon"
+
+[resource]
+script = ExtResource("24_7lq7g")
+drivers = Array[ExtResource("18_hop4q")]([ExtResource("19_mh6wi"), ExtResource("20_t4alv"), ExtResource("21_nr6ma"), ExtResource("22_fm0ko"), ExtResource("23_jw1ee")])
+cars = Array[ExtResource("13_itf3g")]([ExtResource("14_8rrav"), ExtResource("15_ebbrn"), ExtResource("16_7dp55"), ExtResource("17_kl665")])
+stages = Array[ExtResource("25_li7eu")]([ExtResource("26_6lk3i"), ExtResource("27_r6own"), ExtResource("28_xkmi7"), ExtResource("29_b8vgd"), ExtResource("30_dxta2"), ExtResource("31_v70pv"), ExtResource("32_ulwcb"), ExtResource("33_ok07u")])
+cards = Array[ExtResource("2_lcsjk")]([ExtResource("3_vx4vr"), ExtResource("4_cta3b"), ExtResource("5_wwfey"), ExtResource("6_rhhc8"), ExtResource("7_gx03v"), ExtResource("8_dxvgn"), ExtResource("9_qdmq8"), ExtResource("10_oyiyi"), ExtResource("11_m07uu"), ExtResource("12_3onb0")])
+stage_order = PackedStringArray("gravel_valley", "coastal_tarmac", "ridge_jumps", "night_forest", "snow_lane", "long_motorway", "canyon_hairpins", "final_mixed")
+ai_pairs = Array[ExtResource("1_5u5l8")]([SubResource("Resource_j7fk3"), SubResource("Resource_kkrt3"), SubResource("Resource_fmj7f"), SubResource("Resource_hvkc2"), SubResource("Resource_0rtos"), SubResource("Resource_ca5rl"), SubResource("Resource_2f5p7")])
