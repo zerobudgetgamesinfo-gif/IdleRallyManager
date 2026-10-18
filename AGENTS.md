@@ -28,6 +28,7 @@ res://
   scenes/<feature>/           # one folder per feature scene
   scripts/dock/               # window and strip chrome
   scripts/hud/                # championship strip and phase blocks
+  scripts/stage/              # reveal scroll; freed outside stage_reveal
   sim/                        # RefCounted rules, no Node subclass
   data/                       # .tres catalogs
   ui/                         # Theme and controls reused across phases

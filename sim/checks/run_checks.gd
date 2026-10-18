@@ -25,6 +25,7 @@ func _init() -> void:
 	_check_draft()
 	_check_solver()
 	_check_standings()
+	_check_playback()
 	_check_service()
 	_check_catch_up()
 	_check_pause_and_rewind()
@@ -179,6 +180,139 @@ func _check_standings() -> void:
 	_expect(str(table[0]["entry_id"]) == "b", "points tie breaks to the faster total")
 	_expect(str(table[1]["entry_id"]) == "a", "second on time")
 	_expect(str(table[2]["entry_id"]) == "c", "fewer points finishes behind")
+
+
+func _check_playback() -> void:
+	_expect(
+		is_zero_approx(RevealPlayback.fraction_from_remaining(float(Timing.STAGE_REVEAL_SEC))),
+		"fraction at the start"
+	)
+	_expect(is_equal_approx(RevealPlayback.fraction_from_remaining(0.0), 1.0), "fraction at the end")
+	_expect(RevealPlayback.sector_index(0.15) == 0, "beat 1 sector")
+	_expect(RevealPlayback.sector_index(0.40) == 1, "beat 2 sector")
+	_expect(RevealPlayback.sector_index(0.65) == 1, "0.65 is still the middle third")
+	_expect(RevealPlayback.sector_index(0.85) == 2, "beat 4 sector")
+	_expect(RevealPlayback.sector_index(1.0) == 2, "end sector")
+	var champ := Championship.new(CATALOG)
+	champ.start_draft()
+	champ.confirm_draft("pip", "teapot", 0.0, 1)
+	var rows := _open_rows(champ)
+	_expect(rows.size() == 8, "playback rows %s" % rows.size())
+	_check_samples(rows)
+	var stored := champ.stage_result(Championship.PLAYER_ID)
+	var finish_before := stored.finish_time
+	var sectors_before := stored.sector_times.duplicate()
+	var incident_count := stored.incidents.size()
+	RevealPlayback.sample(rows, 0.5)
+	_expect(stored.finish_time == finish_before, "playback changed finish_time")
+	_expect(stored.sector_times == sectors_before, "playback changed sector_times")
+	_expect(stored.incidents.size() == incident_count, "playback changed incidents")
+	_check_sector_two_penalty()
+
+
+func _check_samples(rows: Array) -> void:
+	var solved := _ids_of(Standings.rank_stage(rows))
+	for fraction in [0.0, 0.5, 1.0]:
+		var sampled := RevealPlayback.sample(rows, fraction)
+		_expect(sampled.size() == rows.size(), "sample %s size %s" % [fraction, sampled.size()])
+		if is_zero_approx(fraction):
+			for row in sampled:
+				_expect(is_zero_approx(float(row.get("time", 1.0))), "f=0 time %s" % row.get("time", ""))
+			_expect(_ids_ascending(sampled), "f=0 order %s" % str(_ids_of(sampled)))
+		elif is_equal_approx(fraction, 1.0):
+			_expect(_ids_of(sampled) == solved, "final order %s vs %s" % [_ids_of(sampled), solved])
+		else:
+			_expect(_mid_stage_times(sampled, rows), "f=0.5 left the stage")
+	var reversed: Array = []
+	for index in range(rows.size() - 1, -1, -1):
+		reversed.append(rows[index])
+	_expect(RevealPlayback.order_of(reversed, 1.0) == solved, "input order changed the finish")
+
+
+func _check_sector_two_penalty() -> void:
+	var crafted: Array = [
+		{
+			"entry_id": "fault",
+			"finish_time": 250.0,
+			"sector_times": [250.0 / 3.0, 250.0 / 3.0, 250.0 / 3.0],
+			"incidents": [{"t_norm": 0.5, "kind": "jump", "penalty": 40.0}],
+		},
+		{
+			"entry_id": "pace",
+			"finish_time": 240.0,
+			"sector_times": [80.0, 80.0, 80.0],
+			"incidents": [],
+		},
+	]
+	var sectors := RevealPlayback.presentation_sectors(
+		250.0,
+		[250.0 / 3.0, 250.0 / 3.0, 250.0 / 3.0],
+		[{"t_norm": 0.5, "kind": "jump", "penalty": 40.0}]
+	)
+	_expect(is_equal_approx(sectors[0], 70.0), "pace sector 1 %s" % sectors[0])
+	_expect(is_equal_approx(sectors[1], 110.0), "penalty sector 2 %s" % sectors[1])
+	_expect(is_equal_approx(sectors[2], 70.0), "pace sector 3 %s" % sectors[2])
+	_expect(is_equal_approx(sectors[0] + sectors[1] + sectors[2], 250.0), "sector sum")
+	_check_samples(crafted)
+	var early := _gap_between(crafted, 0.2, "fault", "pace")
+	var during := _gap_between(crafted, 0.5, "fault", "pace")
+	_expect(early < -1.0, "fault should lead before sector 2, gap %s" % early)
+	_expect(during > 1.0, "fault should fall back during sector 2, gap %s" % during)
+	_expect(str(RevealPlayback.order_of(crafted, 1.0)[0]) == "pace", "solved winner")
+
+
+func _open_rows(champ: Championship) -> Array:
+	var rows: Array = []
+	for entry in champ.entries:
+		var result := champ.stage_result(entry.id)
+		if result == null:
+			continue
+		rows.append(RevealPlayback.row_from_result(entry.id, result))
+	return rows
+
+
+func _gap_between(rows: Array, fraction: float, later_id: String, earlier_id: String) -> float:
+	var sampled := RevealPlayback.sample(rows, fraction)
+	var later := 0.0
+	var earlier := 0.0
+	for row in sampled:
+		var entry_id := str(row.get("entry_id", ""))
+		if entry_id == later_id:
+			later = float(row.get("time", 0.0))
+		elif entry_id == earlier_id:
+			earlier = float(row.get("time", 0.0))
+	return later - earlier
+
+
+func _mid_stage_times(sampled: Array, rows: Array) -> bool:
+	var finishes := {}
+	for row in rows:
+		if row is Dictionary:
+			finishes[str((row as Dictionary).get("entry_id", ""))] = float((row as Dictionary).get("finish_time", 0.0))
+	for row in sampled:
+		var time := float(row.get("time", 0.0))
+		var finish := float(finishes.get(str(row.get("entry_id", "")), 0.0))
+		if time <= 0.0 or time >= finish:
+			return false
+	return true
+
+
+func _ids_ascending(rows: Array) -> bool:
+	var previous := ""
+	for row in rows:
+		var entry_id := str(row.get("entry_id", ""))
+		if previous != "" and entry_id < previous:
+			return false
+		previous = entry_id
+	return true
+
+
+func _ids_of(rows: Array) -> PackedStringArray:
+	var ids := PackedStringArray()
+	for row in rows:
+		if row is Dictionary:
+			ids.append(str((row as Dictionary).get("entry_id", "")))
+	return ids
 
 
 func _check_service() -> void:

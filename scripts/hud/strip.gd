@@ -5,10 +5,12 @@ extends Control
 ## The clock timer runs only during a reveal or a service, and stops while paused.
 
 const DraftPlaceholder = preload("res://scripts/hud/draft_placeholder.gd")
+const StageViewScene = preload("res://scenes/stage/stage_view.tscn")
 
 const TEXT_COLOR := Color(0.973, 0.941, 0.878, 1.0)
 const FONT_SIZE := 14
 const SETTINGS_CLEARANCE := 104.0
+const PARK_COLOR := Color(0.34, 0.40, 0.30, 1.0)
 
 var _host: Control
 var _timer: Timer
@@ -210,19 +212,39 @@ func _build_draft() -> Control:
 
 
 func _build_reveal() -> Control:
-	var box := VBoxContainer.new()
-	box.name = "Reveal"
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var layer := Control.new()
+	layer.name = "Reveal"
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.custom_minimum_size = Vector2(0, 48)
+	var view := StageViewScene.instantiate() as StageView
+	view.clock = Callable(self, "now_unix")
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(view)
 	_reveal_label = _label(_reveal_line())
 	_reveal_label.name = "RevealLine"
-	box.add_child(_reveal_label)
-	return box
+	_reveal_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_reveal_label.offset_bottom = 20.0
+	_reveal_label.add_theme_constant_override("outline_size", 4)
+	_reveal_label.add_theme_color_override("font_outline_color", Color(0.12, 0.09, 0.07, 0.9))
+	layer.add_child(_reveal_label)
+	return layer
 
 
 func _build_service() -> Control:
+	var layer := Control.new()
+	layer.name = "Service"
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var park := ColorRect.new()
+	park.name = "Park"
+	park.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	park.color = PARK_COLOR
+	park.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(park)
 	var box := VBoxContainer.new()
-	box.name = "Service"
+	box.name = "ServiceHud"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.add_theme_constant_override("separation", 4)
 	box.add_child(_label("Choice waiting"))
 	var row := HBoxContainer.new()
@@ -243,7 +265,8 @@ func _build_service() -> Control:
 			button.pressed.connect(_on_card_pressed.bind(card_id))
 			row.add_child(button)
 	box.add_child(row)
-	return box
+	layer.add_child(box)
+	return layer
 
 
 func _build_recap() -> Control:
@@ -357,48 +380,52 @@ func _phase_heading() -> String:
 	return phase
 
 
-## Position and gap are the solved order. Phase 4 interpolates the gap.
+## Position and gap follow the sector interpolation. At f = 1 they match the solved order.
 ## Points count committed stages only; the open stage's points land when the reveal ends.
 func _reveal_line() -> String:
-	var champ := Session.championship
-	if champ == null:
-		return "Result pending"
-	var rows: Array[Dictionary] = []
-	for entry in champ.entries:
-		var result := champ.stage_result(entry.id)
-		if result == null:
-			continue
-		rows.append({
-			"entry_id": entry.id,
-			"finish_time": result.finish_time,
-		})
+	var rows := _playback_rows()
 	if rows.is_empty():
 		return "Result pending"
-	var ranked := Standings.rank_stage(rows)
+	var fraction := _reveal_fraction()
+	var ranked := RevealPlayback.sample(rows, fraction)
 	var player_pos := 0
 	var player_time := 0.0
+	var player_finish := 0.0
 	var ahead_time := -1.0
+	for row in rows:
+		if str(row.get("entry_id", "")) == Championship.PLAYER_ID:
+			player_finish = float(row.get("finish_time", 0.0))
+			break
 	for row in ranked:
 		if str(row.get("entry_id", "")) == Championship.PLAYER_ID:
 			player_pos = int(row.get("position", 0))
-			player_time = float(row.get("finish_time", 0.0))
+			player_time = float(row.get("time", 0.0))
 			break
-		ahead_time = float(row.get("finish_time", 0.0))
+		ahead_time = float(row.get("time", 0.0))
 	if player_pos <= 0:
 		return "Result pending"
 	var gap := "lead"
 	if player_pos > 1:
 		gap = "+%.1fs" % (player_time - ahead_time)
-	var clock := _format_mmss(player_time * _reveal_fraction())
+	var clock := _format_mmss(player_finish * fraction)
 	return "P%d  %s  %s  %d pts" % [player_pos, gap, clock, _player_points()]
 
 
+func _playback_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var champ := Session.championship
+	if champ == null:
+		return rows
+	for entry in champ.entries:
+		var result := champ.stage_result(entry.id)
+		if result == null:
+			continue
+		rows.append(RevealPlayback.row_from_result(entry.id, result))
+	return rows
+
+
 func _reveal_fraction() -> float:
-	var duration := float(Timing.STAGE_REVEAL_SEC)
-	if duration <= 0.0:
-		return 0.0
-	var left := Session.remaining(now_unix())
-	return clampf((duration - left) / duration, 0.0, 1.0)
+	return RevealPlayback.fraction_from_remaining(Session.remaining(now_unix()))
 
 
 func _player_points() -> int:

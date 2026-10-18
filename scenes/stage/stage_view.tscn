@@ -1,0 +1,68 @@
+[gd_scene format=3 uid="uid://bn7stageviews"]
+
+[ext_resource type="Script" uid="uid://cm8stageviewg" path="res://scripts/stage/stage_view.gd" id="1_view"]
+
+[node name="StageView" type="Control"]
+clip_contents = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_view")
+
+[node name="Sky" type="ColorRect" parent="."]
+unique_name_in_owner = true
+mouse_filter = 2
+color = Color(0.38, 0.48, 0.6, 1)
+
+[node name="Ground" type="ColorRect" parent="."]
+unique_name_in_owner = true
+mouse_filter = 2
+color = Color(0.76, 0.61, 0.32, 1)
+
+[node name="Road" type="ColorRect" parent="."]
+unique_name_in_owner = true
+mouse_filter = 2
+color = Color(0.4, 0.32, 0.2, 1)
+
+[node name="Rivals" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Player" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Pose" type="Node2D" parent="Player"]
+unique_name_in_owner = true
+
+[node name="Body" type="ColorRect" parent="Player/Pose"]
+offset_left = -20.0
+offset_top = -16.0
+offset_right = 18.0
+offset_bottom = 0.0
+mouse_filter = 2
+color = Color(0.86, 0.33, 0.2, 1)
+
+[node name="Cabin" type="ColorRect" parent="Player/Pose"]
+offset_left = 0.0
+offset_top = -24.0
+offset_right = 16.0
+offset_bottom = -14.0
+mouse_filter = 2
+color = Color(0.95, 0.74, 0.32, 1)
+
+[node name="Tag" type="Label" parent="Player/Pose"]
+offset_left = 22.0
+offset_top = -16.0
+offset_right = 58.0
+offset_bottom = -2.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.973, 0.941, 0.878, 1)
+theme_override_colors/font_outline_color = Color(0.12, 0.09, 0.07, 0.9)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 12
+text = "You"
+vertical_alignment = 1
