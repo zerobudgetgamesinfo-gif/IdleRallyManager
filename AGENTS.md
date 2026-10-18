@@ -28,6 +28,8 @@ res://
   scenes/<feature>/           # one folder per feature scene
   scripts/dock/               # window and strip chrome
   scripts/hud/                # championship strip and phase blocks
+  scripts/draft/              # budget draft view
+  scripts/service/            # service park cards
   scripts/stage/              # reveal scroll; freed outside stage_reveal
   sim/                        # RefCounted rules, no Node subclass
   data/                       # .tres catalogs

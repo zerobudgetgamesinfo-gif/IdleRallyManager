@@ -4,18 +4,19 @@ extends Control
 ## Frees the previous phase block before instancing the next one.
 ## The clock timer runs only during a reveal or a service, and stops while paused.
 
-const DraftPlaceholder = preload("res://scripts/hud/draft_placeholder.gd")
+const DraftViewScene = preload("res://scenes/draft/draft_view.tscn")
+const ServiceViewScene = preload("res://scenes/service/service_view.tscn")
 const StageViewScene = preload("res://scenes/stage/stage_view.tscn")
 
 const TEXT_COLOR := Color(0.973, 0.941, 0.878, 1.0)
 const FONT_SIZE := 14
 const SETTINGS_CLEARANCE := 104.0
-const PARK_COLOR := Color(0.34, 0.40, 0.30, 1.0)
 
 var _host: Control
 var _timer: Timer
 var _clock_label: Label
 var _reveal_label: Label
+var _service_view: ServiceView
 var _rebuild_queued := false
 var _debug_offset := 0.0
 var _results_before_advance := 0
@@ -116,6 +117,7 @@ func _rebuild_now() -> void:
 	_rebuild_queued = false
 	_clock_label = null
 	_reveal_label = null
+	_service_view = null
 	_free_host()
 	var host := VBoxContainer.new()
 	host.name = "PhaseHost"
@@ -204,7 +206,7 @@ func _build_idle() -> Control:
 
 
 func _build_draft() -> Control:
-	var draft := DraftPlaceholder.new()
+	var draft := DraftViewScene.instantiate() as DraftView
 	draft.clock = Callable(self, "now_unix")
 	draft.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	draft.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -232,41 +234,12 @@ func _build_reveal() -> Control:
 
 
 func _build_service() -> Control:
-	var layer := Control.new()
-	layer.name = "Service"
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var park := ColorRect.new()
-	park.name = "Park"
-	park.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	park.color = PARK_COLOR
-	park.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(park)
-	var box := VBoxContainer.new()
-	box.name = "ServiceHud"
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.add_theme_constant_override("separation", 4)
-	box.add_child(_label("Choice waiting"))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var champ := Session.championship
-	var offer: Dictionary = {} if champ == null else champ.offer_for(Championship.PLAYER_ID)
-	var chosen := str(offer.get("chosen_card_id", ""))
-	var ids: Variant = offer.get("card_ids", [])
-	if ids is Array:
-		for raw_id in ids:
-			var card_id := str(raw_id)
-			var button := _button(card_id)
-			if card_id == chosen and card_id != "":
-				button.text = "%s *" % card_id
-			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			button.custom_minimum_size = Vector2(0, 28)
-			button.pressed.connect(_on_card_pressed.bind(card_id))
-			row.add_child(button)
-	box.add_child(row)
-	layer.add_child(box)
-	return layer
+	var view := ServiceViewScene.instantiate() as ServiceView
+	view.clock = Callable(self, "now_unix")
+	view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_service_view = view
+	return view
 
 
 func _build_recap() -> Control:
@@ -298,19 +271,31 @@ func _build_finished() -> Control:
 	box.name = "Finished"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 4)
+	var champ := Session.championship
+	var winner := _winner_line()
+	if winner != "":
+		var banner := _label(winner)
+		banner.add_theme_font_size_override("font_size", 16)
+		box.add_child(banner)
 	var scroll := _scroll()
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var champ := Session.championship
 	if champ != null:
 		for row in champ.standings():
 			list.add_child(_label(_finished_line(row)))
 	scroll.add_child(list)
 	box.add_child(scroll)
+	var actions := HBoxContainer.new()
+	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	actions.add_theme_constant_override("separation", 8)
 	var dismiss := _button("Dismiss")
 	dismiss.pressed.connect(_on_dismiss_finished)
-	box.add_child(dismiss)
+	actions.add_child(dismiss)
+	var again := _button("Start again")
+	again.pressed.connect(_on_dismiss_finished)
+	actions.add_child(again)
+	box.add_child(actions)
 	return box
 
 
@@ -504,10 +489,40 @@ func _stored_row_line(row: Dictionary) -> String:
 
 
 func _recap_text(stage_index: int, position: int, card_id: String, applied_by: String) -> String:
-	var card := card_id if card_id != "" else "-"
-	var applied := applied_by if applied_by != "" else "-"
+	var stage := _stage_name(stage_index)
+	var card := _card_label(card_id)
+	if applied_by == "default":
+		return "%s: %s, you were away" % [stage, _sentence_label(card)]
 	var pos := "P-" if position <= 0 else "P%d" % position
-	return "%s  %s  %s  %s" % [_stage_name(stage_index), pos, card, applied]
+	if card_id == "":
+		return "%s  %s" % [stage, pos]
+	return "%s: %s  %s" % [stage, card, pos]
+
+
+func _card_label(card_id: String) -> String:
+	if card_id == "":
+		return "-"
+	var card := Session.CATALOG.card(card_id)
+	if card != null and card.label != "":
+		return card.label
+	return card_id
+
+
+func _sentence_label(label: String) -> String:
+	if label.is_empty():
+		return label
+	return label.substr(0, 1).to_lower() + label.substr(1)
+
+
+func _winner_line() -> String:
+	var champ := Session.championship
+	if champ == null:
+		return ""
+	var rows := champ.standings()
+	if rows.is_empty():
+		return ""
+	var top: Dictionary = rows[0]
+	return "Winner: %s" % _entry_name(str(top.get("entry_id", "")))
 
 
 func _recap_card(stage_index: int) -> Dictionary:
@@ -598,6 +613,8 @@ func _update_dynamic_labels() -> void:
 		_set_text(_clock_label, _clock_text())
 	if _reveal_label != null and Session.phase() == Championship.PHASE_STAGE_REVEAL:
 		_set_text(_reveal_label, _reveal_line())
+	if _service_view != null and Session.phase() == Championship.PHASE_SERVICE:
+		_service_view.refresh_clock()
 
 
 func _set_text(label: Label, text: String) -> void:
@@ -661,11 +678,6 @@ func _button(text: String) -> Button:
 
 func _on_start_pressed() -> void:
 	Session.start_draft()
-
-
-func _on_card_pressed(card_id: String) -> void:
-	if Session.choose_card(card_id):
-		_queue_rebuild()
 
 
 func _on_dismiss_recap() -> void:

@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://c7draftview01"]
+
+[ext_resource type="Script" uid="uid://c7draftviewgd" path="res://scripts/draft/draft_view.gd" id="1_draft"]
+
+[node name="DraftView" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_draft")

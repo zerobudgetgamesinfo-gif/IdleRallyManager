@@ -191,8 +191,7 @@ func _on_settings_pressed() -> void:
 	_settings_panel.visible = not _settings_panel.visible
 	_settings_button.text = "Close" if _settings_panel.visible else "Settings"
 	if not _settings_panel.visible:
-		_abandon_armed = false
-		_abandon_button.text = "Abandon"
+		_reset_abandon_button()
 	_apply_layout()
 	Dock.refresh_hit_polygon()
 
@@ -223,7 +222,7 @@ func _on_pause_pressed() -> void:
 func _on_abandon_pressed() -> void:
 	if not _abandon_armed:
 		_abandon_armed = true
-		_abandon_button.text = "Confirm abandon"
+		_abandon_button.text = "Clear championship; keep window"
 		return
 	_abandon_armed = false
 	_abandon_button.text = "Abandon"
@@ -270,9 +269,14 @@ func _on_skip_pressed() -> void:
 
 
 func _on_session_phase_changed() -> void:
-	_abandon_armed = false
+	_reset_abandon_button()
 	_sync_championship_controls()
 	_apply_layout()
+
+
+func _reset_abandon_button() -> void:
+	_abandon_armed = false
+	_abandon_button.text = "Abandon"
 
 
 func _on_quit_pressed() -> void:
