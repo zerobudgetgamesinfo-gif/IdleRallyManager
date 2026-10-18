@@ -1,17 +1,21 @@
 class_name DraftView
 extends Control
-## Budget draft: driver and car columns, live total, stage 1 hint, confirm.
+## Budget draft for focus height: driver and car columns, live total, stage 1 hint, confirm.
+## On the left-edge column `vertical` is set before add_child and the columns stack.
+## A selected row carries a check mark, so selection is never color alone.
 
 const TEXT_COLOR := Color(0.973, 0.941, 0.878, 1.0)
 const MUTED_COLOR := Color(0.973, 0.941, 0.878, 0.72)
 const FONT_SIZE := 14
-const FONT_SIZE_COMPACT := 12
-const ROW_HEIGHT := 28.0
-const ROW_HEIGHT_COMPACT := 24.0
+const FONT_SIZE_VERTICAL := 12
+const ROW_HEIGHT := 30.0
+const ICON_EDGE := 24
 const SELECTED_BG := Color(0.42, 0.48, 0.34, 1.0)
 const ROW_BG := Color(0.22, 0.20, 0.17, 0.85)
 
 var clock: Callable = Callable()
+## Stack the driver and car lists instead of placing them side by side.
+var vertical := false
 
 var _driver_id := ""
 var _car_id := ""
@@ -30,7 +34,6 @@ func _ready() -> void:
 	_driver_group = ButtonGroup.new()
 	_car_group = ButtonGroup.new()
 	_build()
-	resized.connect(_on_resized)
 	_refresh_summary()
 
 
@@ -39,7 +42,7 @@ func _build() -> void:
 	root.name = "DraftRoot"
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("separation", 4)
+	root.add_theme_constant_override("separation", 6)
 	add_child(root)
 
 	_hint = _make_label(_stage_hint_text(), MUTED_COLOR)
@@ -47,13 +50,23 @@ func _build() -> void:
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_hint)
 
-	var columns := HBoxContainer.new()
+	var reputation := _make_label("Reputation %d" % Session.garage.reputation, MUTED_COLOR)
+	reputation.name = "Reputation"
+	root.add_child(reputation)
+
+	var columns: BoxContainer = VBoxContainer.new() if vertical else HBoxContainer.new()
 	columns.name = "Columns"
 	columns.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	columns.add_theme_constant_override("separation", 8)
-	root.add_child(columns)
+	columns.add_theme_constant_override("separation", 10)
+	if vertical:
+		# One scroll for both lists; the total and Confirm stay pinned below it.
+		var shared := _make_scroll()
+		root.add_child(shared)
+		shared.add_child(columns)
+	else:
+		root.add_child(columns)
 
 	_drivers_box = _column(columns, "Drivers")
 	_cars_box = _column(columns, "Cars")
@@ -74,36 +87,47 @@ func _build() -> void:
 	_confirm.focus_mode = Control.FOCUS_NONE
 	_confirm.disabled = true
 	_confirm.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	_confirm.custom_minimum_size = Vector2(120, 28)
-	_confirm.add_theme_font_size_override("font_size", FONT_SIZE)
+	_confirm.custom_minimum_size = Vector2(120, 30)
+	_confirm.add_theme_font_size_override("font_size", _font_size())
+	_confirm.accessibility_name = "Confirm draft"
+	_confirm.accessibility_description = "Locks the chosen driver and car and starts the championship."
+	if vertical:
+		_confirm.custom_minimum_size = Vector2(0, 30)
 	_confirm.pressed.connect(_on_confirm_pressed)
 	root.add_child(_confirm)
 
 	_fill_drivers()
 	_fill_cars()
-	_apply_compact_layout()
 
 
-func _column(parent: HBoxContainer, title: String) -> VBoxContainer:
-	var wrap := VBoxContainer.new()
-	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_theme_constant_override("separation", 2)
-	var heading := _make_label(title, MUTED_COLOR)
-	wrap.add_child(heading)
+func _make_scroll() -> ScrollContainer:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.focus_mode = Control.FOCUS_NONE
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	wrap.add_child(scroll)
+	return scroll
+
+
+func _column(parent: BoxContainer, title: String) -> VBoxContainer:
+	var wrap := VBoxContainer.new()
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL if not vertical else Control.SIZE_SHRINK_BEGIN
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_theme_constant_override("separation", 4)
+	var heading := _make_label(title, MUTED_COLOR)
+	wrap.add_child(heading)
 	var list := VBoxContainer.new()
 	list.name = "List"
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	list.add_theme_constant_override("separation", 2)
-	scroll.add_child(list)
+	list.add_theme_constant_override("separation", 4)
+	if vertical:
+		wrap.add_child(list)
+	else:
+		var scroll := _make_scroll()
+		wrap.add_child(scroll)
+		scroll.add_child(list)
 	parent.add_child(wrap)
 	return list
 
@@ -114,7 +138,10 @@ func _fill_drivers() -> void:
 	for driver in Session.CATALOG.drivers:
 		if driver == null or driver.id == "":
 			continue
-		_drivers_box.add_child(_row_button(driver.id, true))
+		if Session.garage.allows(driver.unlock_reputation, driver.id):
+			_drivers_box.add_child(_row_button(driver.id, true))
+		else:
+			_drivers_box.add_child(_locked_row(driver.display_name, driver.unlock_reputation))
 
 
 func _fill_cars() -> void:
@@ -122,6 +149,9 @@ func _fill_cars() -> void:
 		child.queue_free()
 	for car in Session.CATALOG.cars:
 		if car == null or car.id == "":
+			continue
+		if not Session.garage.allows(car.unlock_reputation, car.id):
+			_cars_box.add_child(_locked_row(car.display_name, car.unlock_reputation))
 			continue
 		_cars_box.add_child(_row_button(car.id, false))
 
@@ -134,7 +164,15 @@ func _row_button(item_id: String, is_driver: bool) -> Button:
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	if vertical:
+		# The column is narrow: wrap the row instead of cutting the numbers off.
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	else:
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	button.custom_minimum_size = Vector2(0, ROW_HEIGHT)
+	button.add_theme_font_size_override("font_size", _font_size())
+	button.expand_icon = true
+	button.add_theme_constant_override("icon_max_width", ICON_EDGE)
 	button.set_meta("item_id", item_id)
 	button.set_meta("is_driver", is_driver)
 	_style_row(button, false)
@@ -143,14 +181,21 @@ func _row_button(item_id: String, is_driver: bool) -> Button:
 	return button
 
 
+func _locked_row(title: String, threshold: int) -> Label:
+	var row := _make_label("%s  ·  %d reputation" % [title, threshold], MUTED_COLOR)
+	row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.accessibility_name = "%s, locked until %d reputation" % [title, threshold]
+	return row
+
+
 func _style_row(button: Button, selected: bool) -> void:
 	var style := StyleBoxFlat.new()
 	style.bg_color = SELECTED_BG if selected else ROW_BG
 	style.set_corner_radius_all(4)
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
 	button.add_theme_stylebox_override("normal", style)
 	button.add_theme_stylebox_override("hover", style)
 	button.add_theme_stylebox_override("pressed", style)
@@ -163,24 +208,34 @@ func _style_row(button: Button, selected: bool) -> void:
 func _set_row_text(button: Button) -> void:
 	var item_id := str(button.get_meta("item_id", ""))
 	var is_driver := bool(button.get_meta("is_driver", false))
-	var compact := _is_compact()
-	var font := FONT_SIZE_COMPACT if compact else FONT_SIZE
-	button.add_theme_font_size_override("font_size", font)
-	button.custom_minimum_size = Vector2(0, ROW_HEIGHT_COMPACT if compact else ROW_HEIGHT)
+	var check := "✓ " if button.button_pressed else ""
+	var kind := "driver" if is_driver else "car"
+	var summary := ""
+	var title := item_id
+	var cost := 0
 	if is_driver:
 		var driver := Session.CATALOG.driver(item_id)
-		if driver == null:
-			button.text = item_id
-			return
-		var name := _short_name(driver.display_name) if compact else driver.display_name
-		button.text = "%s  %d  %s" % [name, driver.cost, _two_stat_text_driver(driver)]
+		if driver != null:
+			title = driver.display_name
+			cost = driver.cost
+			summary = _two_stat_text_driver(driver)
+			button.icon = driver.portrait
 	else:
 		var car := Session.CATALOG.car(item_id)
-		if car == null:
-			button.text = item_id
-			return
-		var car_name := car.display_name
-		button.text = "%s  %d  %s" % [car_name, car.cost, _two_stat_text_car(car)]
+		if car != null:
+			title = car.display_name
+			cost = car.cost
+			summary = _two_stat_text_car(car)
+			button.icon = car.portrait
+	if summary == "":
+		button.text = "%s%s" % [check, title]
+	else:
+		button.text = "%s%s  %d  %s" % [check, title, cost, summary]
+	button.accessibility_name = "%s %s, cost %d" % [kind, title, cost]
+	button.accessibility_description = "%s. %s." % [
+		"Selected" if button.button_pressed else "Not selected",
+		summary if summary != "" else "No stats",
+	]
 
 
 func _two_stat_text_driver(driver: DriverDef) -> String:
@@ -211,6 +266,7 @@ func _format_two_stats(getter: Callable) -> String:
 
 func _on_row_toggled(pressed: bool, button: Button) -> void:
 	_style_row(button, pressed)
+	_set_row_text(button)
 	if not pressed:
 		_refresh_summary()
 		return
@@ -247,7 +303,7 @@ func _refresh_summary() -> void:
 		_total.text = "Spent %d / %d · over budget" % [cost, Championship.BUDGET]
 		_good_at.text = ""
 	_confirm.disabled = not legal
-	_good_at.visible = _good_at.text != "" and not _is_compact()
+	_good_at.visible = _good_at.text != ""
 
 
 func _pair_good_at(driver: DriverDef, car: CarDef) -> String:
@@ -293,49 +349,18 @@ func _stat_word(stat_name: String) -> String:
 	return stat_name.capitalize()
 
 
-func _short_name(display_name: String) -> String:
-	if display_name.is_empty():
-		return display_name
-	return display_name.get_slice(" ", 0)
-
-
-func _is_compact() -> bool:
-	return Dock.get_preset() == Dock.PRESET_COMPACT
-
-
-func _on_resized() -> void:
-	_apply_compact_layout()
-
-
-func _apply_compact_layout() -> void:
-	var compact := _is_compact()
-	var font := FONT_SIZE_COMPACT if compact else FONT_SIZE
-	if _hint != null:
-		_hint.add_theme_font_size_override("font_size", font)
-	if _total != null:
-		_total.add_theme_font_size_override("font_size", font)
-	if _good_at != null:
-		_good_at.add_theme_font_size_override("font_size", font)
-		_good_at.visible = _good_at.text != "" and not compact
-	if _confirm != null:
-		_confirm.add_theme_font_size_override("font_size", font)
-		_confirm.custom_minimum_size = Vector2(96 if compact else 120, 24 if compact else 28)
-	for button in _drivers_box.get_children():
-		if button is Button:
-			_set_row_text(button as Button)
-	for button in _cars_box.get_children():
-		if button is Button:
-			_set_row_text(button as Button)
-
-
 func _make_label(text: String, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", FONT_SIZE)
+	label.add_theme_font_size_override("font_size", _font_size())
 	label.add_theme_color_override("font_color", color)
 	return label
+
+
+func _font_size() -> int:
+	return FONT_SIZE_VERTICAL if vertical else FONT_SIZE
 
 
 func _on_confirm_pressed() -> void:

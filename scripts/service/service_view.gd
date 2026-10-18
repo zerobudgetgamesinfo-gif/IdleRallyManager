@@ -1,10 +1,14 @@
 class_name ServiceView
 extends Control
-## Three service cards, next-stage hint, remaining time, and an idle pulse while unpicked.
+## Three service cards and next-stage hint. Remaining time lives in the strip header.
+## The park behind them is one still illustration. Only the card pulse repeats,
+## and only while the player has not chosen. On the left-edge column `vertical` is
+## set before add_child and the cards stack.
 
+const PARK_TEXTURE: Texture2D = preload("res://scenes/service/art/park.svg")
 const TEXT_COLOR := Color(0.973, 0.941, 0.878, 1.0)
 const MUTED_COLOR := Color(0.973, 0.941, 0.878, 0.72)
-const PARK_COLOR := Color(0.34, 0.40, 0.30, 1.0)
+const HINT_BACKDROP := Color(0.176, 0.149, 0.118, 0.78)
 const CARD_BG := Color(0.22, 0.20, 0.17, 0.92)
 const CARD_SELECTED := Color(0.42, 0.48, 0.34, 1.0)
 const ICON_COLORS := {
@@ -15,14 +19,18 @@ const ICON_COLORS := {
 	"focus": Color(0.55, 0.42, 0.62, 1.0),
 }
 const FONT_SIZE := 14
-const FONT_SIZE_COMPACT := 12
+const FONT_SIZE_AWAY := 12
+const FONT_SIZE_VERTICAL := 12
+const CARD_MIN_HEIGHT := 80.0
+const ICON_SIZE := 18.0
 const PULSE_SEC := 1.0
 
-var clock: Callable = Callable()
+## Stack the cards instead of laying them in a row.
+var vertical := false
 
+var _root: VBoxContainer
 var _hint: Label
-var _timer_label: Label
-var _card_row: HBoxContainer
+var _card_row: BoxContainer
 var _cards: Array[PanelContainer] = []
 var _pulse: Tween
 
@@ -30,56 +38,70 @@ var _pulse: Tween
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
-	resized.connect(_on_resized)
 	_apply_selection_visuals()
 	_sync_pulse()
-	refresh_clock()
+	if vertical:
+		resized.connect(_fit_height)
+		_fit_height.call_deferred()
 
 
 func _exit_tree() -> void:
 	_stop_pulse()
 
 
-func refresh_clock() -> void:
-	if _timer_label == null:
-		return
-	_timer_label.text = "%s left" % _format_mmss(Session.remaining(_now()))
-
-
 func _build() -> void:
-	var park := ColorRect.new()
+	var park := TextureRect.new()
 	park.name = "Park"
+	park.texture = PARK_TEXTURE
+	park.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	park.stretch_mode = TextureRect.STRETCH_TILE
 	park.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	park.color = PARK_COLOR
 	park.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(park)
 
-	var root := VBoxContainer.new()
-	root.name = "ServiceRoot"
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("separation", 4)
-	add_child(root)
+	_root = VBoxContainer.new()
+	_root.name = "ServiceRoot"
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.add_theme_constant_override("separation", 8)
+	add_child(_root)
 
-	_hint = _make_label(_next_hint_text(), MUTED_COLOR)
+	var backdrop := PanelContainer.new()
+	backdrop.name = "HintBackdrop"
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var backdrop_style := StyleBoxFlat.new()
+	backdrop_style.bg_color = HINT_BACKDROP
+	backdrop_style.set_corner_radius_all(4)
+	backdrop_style.content_margin_left = 8
+	backdrop_style.content_margin_right = 8
+	backdrop_style.content_margin_top = 2
+	backdrop_style.content_margin_bottom = 2
+	backdrop.add_theme_stylebox_override("panel", backdrop_style)
+	_root.add_child(backdrop)
+
+	_hint = _make_label(_next_hint_text(), TEXT_COLOR)
 	_hint.name = "Hint"
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(_hint)
+	backdrop.add_child(_hint)
 
-	_timer_label = _make_label("", TEXT_COLOR)
-	_timer_label.name = "Timer"
-	root.add_child(_timer_label)
-
-	_card_row = HBoxContainer.new()
+	_card_row = VBoxContainer.new() if vertical else HBoxContainer.new()
 	_card_row.name = "Cards"
 	_card_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_card_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_card_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_card_row.add_theme_constant_override("separation", 6)
-	root.add_child(_card_row)
+	_card_row.add_theme_constant_override("separation", 8)
+	_root.add_child(_card_row)
 
 	_fill_cards()
-	_apply_compact_layout()
+
+
+## Stacked cards decide their own height; the view reports it so the column below can sit under it.
+func _fit_height() -> void:
+	if _root == null:
+		return
+	var wanted := _root.get_combined_minimum_size().y
+	if not is_equal_approx(custom_minimum_size.y, wanted):
+		custom_minimum_size.y = wanted
 
 
 func _fill_cards() -> void:
@@ -108,7 +130,9 @@ func _card_panel(card: CardDef) -> PanelContainer:
 	panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.custom_minimum_size = Vector2(0, 36)
+	panel.custom_minimum_size = Vector2(0, CARD_MIN_HEIGHT)
+	panel.accessibility_name = card.label
+	panel.accessibility_description = _card_description(card)
 	panel.set_meta("card_id", card.id)
 	panel.set_meta("safe", card.safe)
 	panel.gui_input.connect(_on_card_gui_input.bind(card.id))
@@ -116,13 +140,13 @@ func _card_panel(card: CardDef) -> PanelContainer:
 	var body := HBoxContainer.new()
 	body.name = "Body"
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_theme_constant_override("separation", 6)
+	body.add_theme_constant_override("separation", 8)
 	panel.add_child(body)
 
 	var icon := ColorRect.new()
 	icon.name = "Icon"
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.custom_minimum_size = Vector2(14, 14)
+	icon.custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon.color = _icon_color(card)
 	body.add_child(icon)
@@ -132,25 +156,23 @@ func _card_panel(card: CardDef) -> PanelContainer:
 	text_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	text_box.add_theme_constant_override("separation", 1)
+	text_box.add_theme_constant_override("separation", 2)
 	body.add_child(text_box)
 
 	var title := _make_label("", TEXT_COLOR)
 	title.name = "Title"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title.clip_text = true
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_box.add_child(title)
 
 	var delta := _make_label("", MUTED_COLOR)
 	delta.name = "Delta"
 	delta.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	delta.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	delta.clip_text = true
 	text_box.add_child(delta)
 
 	var away := _make_label("", MUTED_COLOR)
 	away.name = "Away"
+	away.add_theme_font_size_override("font_size", FONT_SIZE_AWAY)
 	away.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_box.add_child(away)
 
@@ -173,39 +195,43 @@ func _style_card(panel: PanelContainer, selected: bool) -> void:
 	var style := StyleBoxFlat.new()
 	style.bg_color = CARD_SELECTED if selected else CARD_BG
 	style.set_corner_radius_all(6)
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", style)
 
 
 func _set_card_text(panel: PanelContainer, card: CardDef) -> void:
-	var compact := _is_compact()
-	var font := FONT_SIZE_COMPACT if compact else FONT_SIZE
 	var chosen := _chosen_id()
 	var selected := card.id == chosen and chosen != ""
 	var title := panel.get_node_or_null("Body/Text/Title") as Label
 	var delta := panel.get_node_or_null("Body/Text/Delta") as Label
 	var away := panel.get_node_or_null("Body/Text/Away") as Label
 	if title != null:
-		title.add_theme_font_size_override("font_size", font)
 		var check := "✓ " if selected else ""
-		if compact:
-			title.text = "%s%s" % [check, card.label.get_slice(" ", 0)]
-		else:
-			title.text = "%s%s" % [check, card.label]
+		title.text = "%s%s" % [check, card.label]
 	if delta != null:
-		delta.add_theme_font_size_override("font_size", font)
 		delta.text = _delta_text(card)
 	if away != null:
-		away.add_theme_font_size_override("font_size", FONT_SIZE_COMPACT)
 		if card.safe:
 			away.visible = true
-			away.text = "away default" if compact else "If you step away: this one"
+			away.text = "If you step away: this one"
 		else:
 			away.visible = false
 			away.text = ""
+	panel.accessibility_description = _card_description(card)
+
+
+## Said by tools that walk the tree: the effect, the default, and whether it is the current pick.
+func _card_description(card: CardDef) -> String:
+	var parts: PackedStringArray = [_delta_text(card)]
+	if card.safe:
+		parts.append("This is the card applied if you step away")
+	var chosen := _chosen_id()
+	if chosen != "" and card.id == chosen:
+		parts.append("Selected")
+	return ". ".join(parts)
 
 
 func _delta_text(card: CardDef) -> String:
@@ -297,45 +323,11 @@ func _chosen_id() -> String:
 	return str(_player_offer().get("chosen_card_id", ""))
 
 
-func _now() -> float:
-	if clock.is_valid():
-		return float(clock.call())
-	return Time.get_unix_time_from_system()
-
-
-func _format_mmss(seconds: float) -> String:
-	var total := maxi(floori(seconds), 0)
-	return "%d:%02d" % [int(total / 60.0), total % 60]
-
-
-func _is_compact() -> bool:
-	return Dock.get_preset() == Dock.PRESET_COMPACT
-
-
-func _on_resized() -> void:
-	_apply_compact_layout()
-
-
-func _apply_compact_layout() -> void:
-	var compact := _is_compact()
-	var font := FONT_SIZE_COMPACT if compact else FONT_SIZE
-	if _hint != null:
-		_hint.add_theme_font_size_override("font_size", font)
-	if _timer_label != null:
-		_timer_label.add_theme_font_size_override("font_size", font)
-	for panel in _cards:
-		if not is_instance_valid(panel):
-			continue
-		var card := Session.CATALOG.card(str(panel.get_meta("card_id", "")))
-		if card != null:
-			_set_card_text(panel, card)
-
-
 func _make_label(text: String, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", FONT_SIZE)
+	label.add_theme_font_size_override("font_size", FONT_SIZE_VERTICAL if vertical else FONT_SIZE)
 	label.add_theme_color_override("font_color", color)
 	return label

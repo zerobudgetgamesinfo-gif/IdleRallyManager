@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CarDef" format=3]
+
+[ext_resource type="Script" path="res://data/car_def.gd" id="1_comet"]
+[ext_resource type="Texture2D" uid="uid://bf2sehkl6xr6q" path="res://scenes/draft/art/cars/comet.svg" id="2_portrait"]
+
+[resource]
+script = ExtResource("1_comet")
+id = "comet"
+display_name = "Comet"
+unlock_reputation = 36
+cost = 6
+pace = 8
+grip = 3
+jump = 5
+reliability = 4
+portrait = ExtResource("2_portrait")

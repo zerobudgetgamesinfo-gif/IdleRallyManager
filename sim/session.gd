@@ -15,6 +15,7 @@ var time_scale := 1.0
 var muted := false
 var load_error := ""
 var championship: Championship
+var garage := Garage.new()
 var save_path := SaveGame.DEFAULT_PATH
 
 var _persist := true
@@ -51,6 +52,8 @@ func start_draft() -> void:
 
 func confirm_draft(driver_id: String, car_id: String, now_unix: float, fixed_seed: int = -1) -> bool:
 	if championship == null or championship.phase != Championship.PHASE_DRAFT:
+		return false
+	if not _draft_allowed(driver_id, car_id):
 		return false
 	if not championship.confirm_draft(driver_id, car_id, now_unix, fixed_seed):
 		return false
@@ -101,6 +104,7 @@ func dismiss_recap() -> void:
 func dismiss_finished() -> void:
 	if championship == null or championship.phase != Championship.PHASE_FINISHED:
 		return
+	garage.commit_finish(_player_points(), CATALOG)
 	championship = null
 	phase_changed.emit()
 	save_now()
@@ -145,7 +149,12 @@ func save_now() -> void:
 	var stored: Variant = null
 	if championship != null:
 		stored = championship.to_dictionary()
-	var err := SaveGame.write_file(save_path, {"time_scale": time_scale, "muted": muted}, stored)
+	var err := SaveGame.write_file(
+		save_path,
+		{"time_scale": time_scale, "muted": muted},
+		stored,
+		garage.to_dictionary()
+	)
 	if err != OK:
 		push_error("Session failed to save: %s" % error_string(err))
 
@@ -163,6 +172,7 @@ func load_from_disk() -> void:
 	if status == SaveGame.STATUS_OLDER:
 		load_error = str(loaded.get("error", ""))
 		championship = null
+		garage = Garage.new()
 		time_scale = 1.0
 		muted = false
 		save_now()
@@ -170,6 +180,7 @@ func load_from_disk() -> void:
 	if status != SaveGame.STATUS_OK:
 		return
 	_apply_settings(loaded.get("settings", {}))
+	_apply_garage(loaded.get("garage", {}))
 	var stored: Variant = loaded.get("championship", null)
 	if stored is Dictionary:
 		championship = Championship.from_dictionary(stored, CATALOG)
@@ -177,6 +188,35 @@ func load_from_disk() -> void:
 			championship = null
 	else:
 		championship = null
+	if bool(loaded.get("migrated", false)):
+		save_now()
+
+
+func _player_points() -> int:
+	if championship == null:
+		return 0
+	for row in championship.standings():
+		if str(row.get("entry_id", "")) == Championship.PLAYER_ID:
+			return int(row.get("points", 0))
+	return 0
+
+
+func _draft_allowed(driver_id: String, car_id: String) -> bool:
+	var driver := CATALOG.driver(driver_id)
+	var chosen_car := CATALOG.car(car_id)
+	if driver == null or chosen_car == null:
+		return false
+	return (
+		garage.allows(driver.unlock_reputation, driver.id)
+		and garage.allows(chosen_car.unlock_reputation, chosen_car.id)
+	)
+
+
+func _apply_garage(data: Variant) -> void:
+	if data is Dictionary:
+		garage = Garage.from_dictionary(data)
+	else:
+		garage = Garage.new()
 
 
 func _apply_settings(settings: Variant) -> void:

@@ -18,6 +18,10 @@ anti_aliasing = false
 
 [sub_resource type="ButtonGroup" id="ButtonGroup_height"]
 
+[sub_resource type="ButtonGroup" id="ButtonGroup_edge"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_scale"]
+
 [node name="Main" type="Control" unique_id=667885384]
 layout_mode = 3
 anchors_preset = 15
@@ -63,6 +67,7 @@ grow_horizontal = 2
 mouse_default_cursor_shape = 13
 
 [node name="Grip" type="ColorRect" parent="Strip/MouseDragHandle" unique_id=1630168286]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -91,6 +96,8 @@ grow_horizontal = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 text = "Settings"
+accessibility_name = "Settings"
+accessibility_description = "Opens the settings cluster inside the strip."
 
 [node name="SettingsPanel" type="PanelContainer" parent="Strip" unique_id=367183153]
 unique_name_in_owner = true
@@ -117,7 +124,7 @@ theme_override_constants/v_separation = 4
 
 [node name="Height" type="Label" parent="Strip/SettingsPanel/SettingsRow" unique_id=320811174]
 layout_mode = 2
-text = "Height"
+text = "Size"
 vertical_alignment = 1
 
 [node name="Compact" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=1486449019]
@@ -142,7 +149,105 @@ text = "Cozy"
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
-text = "Always on top"
+text = "On top"
+
+[node name="Mute" type="CheckBox" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "Mute"
+accessibility_name = "Mute"
+accessibility_description = "Silences the reveal loop and the incident sound."
+
+[node name="ExcludeCapture" type="CheckBox" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "No capture"
+accessibility_name = "Hide from screen capture"
+accessibility_description = "Asks the system to leave this window out of screenshots and screen sharing. Best effort."
+
+[node name="EdgeLabel" type="Label" parent="Strip/SettingsPanel/SettingsRow"]
+layout_mode = 2
+text = "Edge"
+vertical_alignment = 1
+
+[node name="EdgeBottom" type="Button" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_edge")
+text = "Bottom"
+
+[node name="EdgeLeft" type="Button" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_edge")
+text = "Left"
+
+[node name="ScaleLabel" type="Label" parent="Strip/SettingsPanel/SettingsRow"]
+layout_mode = 2
+text = "Scale"
+vertical_alignment = 1
+
+[node name="Scale100" type="Button" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_scale")
+text = "1x"
+accessibility_name = "Content scale 1"
+
+[node name="Scale125" type="Button" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_scale")
+text = "1.25x"
+accessibility_name = "Content scale 1.25"
+
+[node name="Scale150" type="Button" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_scale")
+text = "1.5x"
+accessibility_name = "Content scale 1.5"
+
+[node name="Scale200" type="Button" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_scale")
+text = "2x"
+accessibility_name = "Content scale 2"
+
+[node name="ScaleMatch" type="Button" parent="Strip/SettingsPanel/SettingsRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_scale")
+text = "Match"
+accessibility_name = "Content scale matches the screen"
 
 [node name="PauseButton" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=1017548892]
 unique_name_in_owner = true
@@ -151,6 +256,8 @@ layout_mode = 2
 focus_mode = 0
 mouse_default_cursor_shape = 2
 text = "Pause"
+accessibility_name = "Pause"
+accessibility_description = "Freezes the championship clock until you resume."
 
 [node name="AbandonButton" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=340520078]
 unique_name_in_owner = true
@@ -166,3 +273,5 @@ layout_mode = 2
 focus_mode = 0
 mouse_default_cursor_shape = 2
 text = "Quit"
+accessibility_name = "Quit"
+accessibility_description = "Saves and closes Idle Rally Manager."

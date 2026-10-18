@@ -37,7 +37,7 @@ Phase 6's tuned catalog. Art can be stubbed earlier, but this phase is where pla
 
 ### Desktop
 
-11. Side dock, optional, off by default. `window.cfg` key `edge` is `bottom` or `left`. Left uses the usable rect's left edge, height = usable height, width = the preset's long side (144 or 220). The drag handle moves to the inner edge. Hit polygon inset stays 8 px. If the layout cannot fit the three cards, the left edge falls back to a standings-only column and the cards stack. Skip the side dock rather than shipping a broken stack.
+11. Side dock, optional, off by default. `window.cfg` key `edge` is `bottom` or `left`. Left uses the usable rect's left edge, height = usable height, width = the idle preset's long side (144 or 220), not focus height. If the strip is in a focus phase when the player switches to left, fall back to the preset width (choice layouts may stack or simplify). The drag handle moves to the inner edge. Hit polygon inset stays 8 px. If the layout cannot fit the three cards, the left edge falls back to a standings-only column and the cards stack. Skip the side dock rather than shipping a broken stack.
 12. Manual content scale in settings (1.0, 1.25, 1.5, 2.0) because X11 and Windows do not report a scale reliably ([Multiple resolutions](https://docs.godotengine.org/en/4.7/tutorials/rendering/multiple_resolutions.html)). Multiply the preset by that factor. Default 1.0, and on Wayland/macOS offer "Match screen" using `DisplayServer.screen_get_scale` when it returns a useful value.
 13. `exclude_from_capture` on the root window, default off, toggle in settings. The hint exists on Windows and macOS only; hide the toggle when the property does nothing. It is best-effort, not a privacy guarantee (Creating applications, overlay section).
 14. HiDPI smoke test: cozy preset at scale 2 stays on the usable rect and the quit button remains inside the window.
@@ -66,3 +66,16 @@ Touched scenes from phases 1, 3, 4, and 5, plus:
 - Intro copy shows once per machine (`window.cfg`), not once per championship.
 - Linux export runs the strip beside another app the same way the editor run did in phase 1.
 - Windows or macOS, when a machine is available: transparent margins, quit, and (if the toggle is shown) exclude-from-capture. Missing hardware is a written gap, not a silent skip of the Linux checks.
+
+## Status
+
+Implemented and checked headless (`sim/checks/ui_checks.gd`, run by `run_checks.gd`): illustrated stage layers, portraits, incident poses, still service park, intro once, bus mute, reveal loop and stinger, accessibility names, side dock, content scale, exclude-from-capture setting, still idle audit, and the HiDPI cozy-at-2x geometry.
+
+Run by hand on Windows outside the embedded view: bottom compact and cozy, left 144 and 220, and cozy at scale 2 through idle, draft, reveal, service, and a pick. Everything stays inside the window. Left compact (144) is tight: cards stack and text wraps, so left cozy is the better default for the side dock.
+
+Gaps:
+
+- Linux export and the Linux strip-beside-another-app run were not done. This machine is Windows with no export templates (`windows_release_x86_64.exe` is missing), so no export was produced. `export_presets.cfg` has Linux, Windows, and macOS presets with the PCK embedded and portable mode off; the Windows preset skips `rcedit` (`application/modify_resources=false`). Output goes to `build/`, which is ignored.
+- Exclude-from-capture and transparent margins were not checked in a capture tool or on macOS.
+- `ui/theme.tres` was not created. Controls keep the default theme with local overrides; no task above needs it.
+- OS panel reservation was not tried, per the non-goals.

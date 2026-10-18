@@ -31,7 +31,7 @@ Phase 2 offer API and phase 3 strip. Phase 4 is not required to play the choices
 3. Recap rows from phase 3 now use card labels and stage display names, not raw ids. Include `applied_by` so a default is visible ("Snow Lane: checked the pressures, you were away").
 4. Finished view: full table, winner line, Dismiss, and Start again (idle, then the player starts a new draft themselves; do not auto-open the draft).
 5. Abandon stays the two-click control from phase 3. Copy should say the championship will be cleared and the window setup will not.
-6. Layout pass at 144 px and 220 px. Cards may be icon plus one word at compact height; cozy shows the full label. Both heights remain inside the passthrough polygon. Ask `Dock` to refresh after the view swap.
+6. Choice phases use Dock focus height (see GDD §9.1), not the compact/cozy idle strip. Draft and service lay out for that taller canvas (full card labels, readable draft rows). Ask `Dock` to refresh the passthrough polygon after the view swap.
 7. No new save fields. Picks, defaults, and owned card ids already round-trip in phase 2. Add a headless check only if a new rule appears (it should not).
 
 ## Files
@@ -52,4 +52,4 @@ Phase 2 offer API and phase 3 strip. Phase 4 is not required to play the choices
 - With no pick, catch-up or a sped-up clock applies the safe card and the recap says the player was away.
 - Stage 8 ends on the final table and does not open a service.
 - The pulse is absent during a reveal and absent after a card is selected.
-- Mouse-only, no focus steal, both height presets.
+- Mouse-only, no focus steal. Entering draft/service/recap/finished expands to focus height; idle and reveal keep the saved preset.

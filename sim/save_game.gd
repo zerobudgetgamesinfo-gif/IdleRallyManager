@@ -1,8 +1,9 @@
 class_name SaveGame
 extends RefCounted
-## user://save.json, version 1. A newer version is left untouched. An older version is copied aside.
+## user://save.json, version 2. A newer version is left untouched.
+## Version 1 gains an empty garage. Any other older version is copied aside.
 
-const VERSION := 1
+const VERSION := 2
 const DEFAULT_PATH := "user://save.json"
 const DEFAULT_BACKUP_PATH := "user://save.backup.json"
 
@@ -23,7 +24,9 @@ static func load_from_file(path: String, backup_path: String = "") -> Dictionary
 	var outcome := {
 		"status": STATUS_MISSING,
 		"error": "",
+		"migrated": false,
 		"settings": {},
+		"garage": {"reputation": 0, "unlocked_ids": []},
 		"championship": null,
 	}
 	if not FileAccess.file_exists(path):
@@ -40,7 +43,7 @@ static func load_from_file(path: String, backup_path: String = "") -> Dictionary
 		outcome["status"] = STATUS_NEWER
 		outcome["error"] = "Save file is from a newer version (%s). It was left unchanged." % version
 		return outcome
-	if version < VERSION:
+	if version < VERSION and version != 1:
 		var backup := backup_path if backup_path != "" else backup_path_for(path)
 		var copied := _copy_file(path, backup)
 		if copied != OK:
@@ -51,6 +54,8 @@ static func load_from_file(path: String, backup_path: String = "") -> Dictionary
 		outcome["error"] = "Save file is from version %s and was moved aside." % version
 		return outcome
 	outcome["status"] = STATUS_OK
+	outcome["migrated"] = version == 1
+	outcome["garage"] = _garage_from(data)
 	var settings: Variant = data.get("settings", {})
 	if settings is Dictionary:
 		outcome["settings"] = (settings as Dictionary).duplicate(true)
@@ -60,7 +65,12 @@ static func load_from_file(path: String, backup_path: String = "") -> Dictionary
 	return outcome
 
 
-static func write_file(path: String, settings: Dictionary, championship: Variant) -> Error:
+static func write_file(
+	path: String,
+	settings: Dictionary,
+	championship: Variant,
+	garage: Dictionary = {}
+) -> Error:
 	_ensure_parent(path)
 	var payload := {
 		"version": VERSION,
@@ -68,6 +78,7 @@ static func write_file(path: String, settings: Dictionary, championship: Variant
 			"time_scale": float(settings.get("time_scale", 1.0)),
 			"muted": bool(settings.get("muted", false)),
 		},
+		"garage": _garage_from({"garage": garage}),
 		"championship": championship,
 	}
 	var file := FileAccess.open(path, FileAccess.WRITE)
@@ -77,6 +88,22 @@ static func write_file(path: String, settings: Dictionary, championship: Variant
 	file.store_string("\n")
 	file.close()
 	return OK
+
+
+static func _garage_from(data: Dictionary) -> Dictionary:
+	var raw: Variant = data.get("garage", {})
+	var source: Dictionary = raw if raw is Dictionary else {}
+	var ids: Array = []
+	var raw_ids: Variant = source.get("unlocked_ids", [])
+	if raw_ids is Array:
+		for raw_id in raw_ids:
+			var id := str(raw_id)
+			if id != "" and not ids.has(id):
+				ids.append(id)
+	return {
+		"reputation": maxi(int(source.get("reputation", 0)), 0),
+		"unlocked_ids": ids,
+	}
 
 
 static func _copy_file(source: String, destination: String) -> Error:

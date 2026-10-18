@@ -1,11 +1,19 @@
 extends Node
-## Window flags, bottom-edge placement, hit polygon, and user://window.cfg.
+## Window flags, edge placement, hit polygon, and user://window.cfg.
 ##
 ## Section "window" stores screen (int, -1 until a screen is chosen), preset
-## ("compact" or "cozy"), and always_on_top (bool). Pixel height is the preset
-## times DisplayServer.screen_get_scale. That call is implemented on Wayland,
-## macOS, Android, iOS, and Web. X11 and Windows return 1.0; a later phase adds
-## a manual scale. The file stores the preset name, not the pixel height.
+## ("compact" or "cozy"), always_on_top (bool), edge ("bottom" or "left"),
+## scale ("1.0", "1.25", "1.5", "2.0", or "match"), exclude_from_capture (bool),
+## and seen_intro (bool, the first-launch copy). The file stores the preset name,
+## never a pixel size. Geometry comes from DockGeometry: on the bottom edge the
+## height is the preset times the content scale, or the focus height while a
+## choice phase is open; on the left edge the width is the preset's long side
+## times the content scale and focus height does not apply. Focus height is
+## runtime-only (driven by Session phase); it is never written to the cfg.
+##
+## X11 and Windows do not report a display scale reliably, so the scale is a manual
+## choice. "match" reads DisplayServer.screen_get_scale and is only offered on
+## Wayland and macOS, where that call returns a real value.
 ##
 ## Godot 4.7 documents FLAG_BORDERLESS and FLAG_TRANSPARENT on native Wayland.
 ## FLAG_ALWAYS_ON_TOP, FLAG_NO_FOCUS, and mouse_passthrough_polygon are documented
@@ -16,13 +24,20 @@ extends Node
 ## The hit polygon is the rounded strip, inset by PASSTHROUGH_MARGIN window pixels.
 ## On Windows, pixels outside that polygon are not drawn, so strip art uses the same inset.
 
+## Fired after the strip moves to another edge. The strip scene rebuilds its layout.
+signal edge_changed
+
 const CONFIG_PATH := "user://window.cfg"
 const SECTION := "window"
 
-const PRESET_COMPACT := "compact"
-const PRESET_COZY := "cozy"
-const HEIGHT_COMPACT := 144
-const HEIGHT_COZY := 220
+const PRESET_COMPACT := DockGeometry.PRESET_COMPACT
+const PRESET_COZY := DockGeometry.PRESET_COZY
+const HEIGHT_COMPACT := DockGeometry.SIZE_COMPACT
+const HEIGHT_COZY := DockGeometry.SIZE_COZY
+const HEIGHT_FOCUS := DockGeometry.SIZE_FOCUS
+const EDGE_BOTTOM := DockGeometry.EDGE_BOTTOM
+const EDGE_LEFT := DockGeometry.EDGE_LEFT
+const SCALE_MATCH := DockGeometry.SCALE_MATCH
 
 const PASSTHROUGH_MARGIN := 8.0
 const CORNER_RADIUS := 12.0
@@ -33,6 +48,12 @@ const DRIFT_PX := 2
 
 var _screen := -1
 var _preset := PRESET_COZY
+var _edge := EDGE_BOTTOM
+var _scale_step := 1.0
+var _scale_match := false
+var _exclude_from_capture := false
+var _seen_intro := false
+var _focus := false
 var _always_on_top := true
 var _overlay_active := false
 var _dragging := false
@@ -106,11 +127,99 @@ func set_preset(preset: String) -> void:
 	if preset == _preset:
 		return
 	_preset = preset
-	if _overlay_active:
-		var screen := _screen if _screen >= 0 else _resolve_screen()
-		if _place_on_screen(screen):
-			_rebuild_passthrough()
+	_reapply_placement()
 	_save_config()
+
+
+func get_edge() -> String:
+	return _edge
+
+
+## True when the strip is the left-edge column.
+func is_side() -> bool:
+	return _edge == EDGE_LEFT
+
+
+func set_edge(edge: String) -> void:
+	if edge != EDGE_BOTTOM and edge != EDGE_LEFT:
+		return
+	if edge == _edge:
+		return
+	_edge = edge
+	_reapply_placement()
+	_save_config()
+	edge_changed.emit()
+
+
+## "match" or one of "1.0", "1.25", "1.5", "2.0".
+func get_scale_choice() -> String:
+	if _scale_match and has_match_scale():
+		return SCALE_MATCH
+	return _scale_text(_scale_step)
+
+
+func set_scale_choice(choice: String) -> void:
+	if choice == SCALE_MATCH:
+		if not has_match_scale() or _scale_match:
+			return
+		_scale_match = true
+	else:
+		var step := DockGeometry.nearest_step(choice.to_float())
+		if not _scale_match and is_equal_approx(step, _scale_step):
+			return
+		_scale_match = false
+		_scale_step = step
+	_reapply_placement()
+	_save_config()
+
+
+## Wayland and macOS report a display scale; X11 and Windows return 1.0 regardless.
+func has_match_scale() -> bool:
+	return DisplayServer.get_name().to_lower() == "wayland" or OS.get_name() == "macOS"
+
+
+## The exclude-from-capture hint exists on Windows and macOS only.
+func can_exclude_from_capture() -> bool:
+	var os_name := OS.get_name()
+	return os_name == "Windows" or os_name == "macOS"
+
+
+func is_excluded_from_capture() -> bool:
+	return _exclude_from_capture and can_exclude_from_capture()
+
+
+## Best effort. The OS may still show the window to some capture paths.
+func set_exclude_from_capture(enabled: bool) -> void:
+	if not can_exclude_from_capture() or enabled == _exclude_from_capture:
+		return
+	_exclude_from_capture = enabled
+	if _overlay_active:
+		get_window().exclude_from_capture = enabled
+	_save_config()
+
+
+func has_seen_intro() -> bool:
+	return _seen_intro
+
+
+## First-launch copy is shown once per machine, so this lives in window.cfg.
+func mark_intro_seen() -> void:
+	if _seen_intro:
+		return
+	_seen_intro = true
+	_save_config()
+
+
+func is_focus() -> bool:
+	return _focus
+
+
+## Transient taller strip for draft, service, recap, and finished. Not saved.
+func set_focus(enabled: bool) -> void:
+	if enabled == _focus:
+		return
+	_focus = enabled
+	_reapply_placement()
 
 
 func is_always_on_top() -> bool:
@@ -180,6 +289,8 @@ func _apply_flags() -> void:
 	window.transparent_bg = true
 	window.always_on_top = _always_on_top
 	window.unfocusable = true
+	if can_exclude_from_capture():
+		window.exclude_from_capture = _exclude_from_capture
 
 
 func _resolve_screen() -> int:
@@ -209,18 +320,15 @@ func _place_on_screen(screen: int) -> bool:
 	var usable := DisplayServer.screen_get_usable_rect(screen)
 	if usable.size.x < 1 or usable.size.y < 1:
 		return false
-	var height := mini(_scaled_height(screen), usable.size.y)
-	var size := Vector2i(usable.size.x, height)
-	var position := Vector2i(usable.position.x, usable.position.y + usable.size.y - height)
+	var scale := _content_scale(screen)
+	var rect := DockGeometry.window_rect(usable, _edge, _preset, _focus, scale)
+	var size := rect.size
+	var position := rect.position
 	var window := get_window()
 	window.initial_position = Window.WINDOW_INITIAL_POSITION_ABSOLUTE
 	# Match the stretch base to the logical strip size so compact stays 144 design
 	# pixels tall instead of scaling the 220-pixel layout down into that height.
-	var scale := _content_scale(screen)
-	window.content_scale_size = Vector2i(
-		maxi(1, roundi(float(size.x) / scale)),
-		maxi(1, roundi(float(size.y) / scale))
-	)
+	window.content_scale_size = DockGeometry.logical_size(size, scale)
 	if window.size != size:
 		window.size = size
 	if window.position != position:
@@ -230,18 +338,25 @@ func _place_on_screen(screen: int) -> bool:
 	return true
 
 
-func _scaled_height(screen: int) -> int:
-	var base := HEIGHT_COZY
-	if _preset == PRESET_COMPACT:
-		base = HEIGHT_COMPACT
-	return maxi(1, roundi(float(base) * _content_scale(screen)))
+func _reapply_placement() -> void:
+	if not _overlay_active:
+		return
+	var screen := _screen if _screen >= 0 else _resolve_screen()
+	if _place_on_screen(screen):
+		_rebuild_passthrough()
 
 
 func _content_scale(screen: int) -> float:
-	var scale := DisplayServer.screen_get_scale(screen)
-	if scale <= 0.0:
+	if _scale_match and has_match_scale():
+		var reported := DisplayServer.screen_get_scale(screen)
+		if reported > 0.0:
+			return reported
 		return 1.0
-	return scale
+	return _scale_step
+
+
+func _scale_text(step: float) -> String:
+	return str(step)
 
 
 func _follow_drag_screen() -> void:
@@ -265,9 +380,9 @@ func _snap_if_dock_drifted() -> void:
 	if window.mode == Window.MODE_MINIMIZED:
 		return
 	var usable := DisplayServer.screen_get_usable_rect(_screen)
-	var height := mini(_scaled_height(_screen), maxi(usable.size.y, 1))
-	var expected_size := Vector2i(maxi(usable.size.x, 1), height)
-	var expected_pos := Vector2i(usable.position.x, usable.position.y + usable.size.y - height)
+	var expected := DockGeometry.window_rect(usable, _edge, _preset, _focus, _content_scale(_screen))
+	var expected_size := expected.size
+	var expected_pos := expected.position
 	var size_delta := (window.size - expected_size).abs()
 	var pos_delta := (window.position - expected_pos).abs()
 	var moved := usable != _last_usable
@@ -335,14 +450,35 @@ func _load_config() -> void:
 	var always: Variant = config.get_value(SECTION, "always_on_top", true)
 	if always is bool:
 		_always_on_top = always
+	var edge := str(config.get_value(SECTION, "edge", EDGE_BOTTOM))
+	if edge == EDGE_BOTTOM or edge == EDGE_LEFT:
+		_edge = edge
+	var stored_scale: Variant = config.get_value(SECTION, "scale", "1.0")
+	if str(stored_scale) == SCALE_MATCH:
+		_scale_match = true
+	elif stored_scale is float or stored_scale is int or stored_scale is String:
+		_scale_step = DockGeometry.nearest_step(float(str(stored_scale)))
+	var exclude: Variant = config.get_value(SECTION, "exclude_from_capture", false)
+	if exclude is bool:
+		_exclude_from_capture = exclude
+	var intro: Variant = config.get_value(SECTION, "seen_intro", false)
+	if intro is bool:
+		_seen_intro = intro
 
 
 func _save_config() -> void:
+	# A headless run (the checks) must not rewrite the player's window.cfg.
+	if DisplayServer.get_name() == "headless":
+		return
 	var config := ConfigFile.new()
 	config.load(CONFIG_PATH)
 	config.set_value(SECTION, "screen", _screen)
 	config.set_value(SECTION, "preset", _preset)
 	config.set_value(SECTION, "always_on_top", _always_on_top)
+	config.set_value(SECTION, "edge", _edge)
+	config.set_value(SECTION, "scale", get_scale_choice())
+	config.set_value(SECTION, "exclude_from_capture", _exclude_from_capture)
+	config.set_value(SECTION, "seen_intro", _seen_intro)
 	var err := config.save(CONFIG_PATH)
 	if err != OK:
 		push_error("Dock failed to save window.cfg: %s" % error_string(err))
@@ -364,8 +500,8 @@ func _probe_platform() -> void:
 	print("Dock: unfocusable wanted=true read_back=%s" % unfocusable)
 	print("Dock: passthrough polygon points=%s" % points)
 	print(
-		"Dock: screen=%s preset=%s scale=%.2f pos=%s size=%s usable=%s"
-		% [_screen, _preset, scale, window.position, window.size, _last_usable]
+		"Dock: screen=%s edge=%s preset=%s focus=%s scale=%.2f pos=%s size=%s usable=%s"
+		% [_screen, _edge, _preset, _focus, scale, window.position, window.size, _last_usable]
 	)
 	for index in DisplayServer.get_screen_count():
 		print(

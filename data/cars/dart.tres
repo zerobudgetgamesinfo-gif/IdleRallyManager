@@ -1,13 +1,15 @@
 [gd_resource type="Resource" script_class="CarDef" format=3]
 
 [ext_resource type="Script" path="res://data/car_def.gd" id="1_87mr2"]
+[ext_resource type="Texture2D" uid="uid://cna2vt3olf4j4" path="res://scenes/draft/art/cars/dart.svg" id="2_portrait"]
 
 [resource]
 script = ExtResource("1_87mr2")
 id = "dart"
 display_name = "Dart"
 cost = 6
-pace = 9
+pace = 8
 grip = 4
-jump = 6
-reliability = 4
+jump = 4
+reliability = 5
+portrait = ExtResource("2_portrait")

@@ -1,14 +1,17 @@
 [gd_resource type="Resource" script_class="DriverDef" format=3]
 
 [ext_resource type="Script" path="res://data/driver_def.gd" id="1_oynwo"]
+[ext_resource type="Texture2D" uid="uid://bmlnr8sxpvyct" path="res://scenes/draft/art/drivers/kiko.svg" id="2_portrait"]
 
 [resource]
 script = ExtResource("1_oynwo")
 id = "kiko"
 display_name = "Kiko the monkey"
+temperament = "Kiko lives for the crests."
 cost = 5
-pace = 6
-grip = 5
-jump = 9
-reliability = 4
-focus = 5
+pace = 4
+grip = 4
+jump = 7
+reliability = 5
+focus = 6
+portrait = ExtResource("2_portrait")

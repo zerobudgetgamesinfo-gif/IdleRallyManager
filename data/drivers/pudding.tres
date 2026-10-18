@@ -1,14 +1,17 @@
 [gd_resource type="Resource" script_class="DriverDef" format=3]
 
 [ext_resource type="Script" path="res://data/driver_def.gd" id="1_n0xe6"]
+[ext_resource type="Texture2D" uid="uid://dvc6ifv5mb3s8" path="res://scenes/draft/art/drivers/pudding.svg" id="2_portrait"]
 
 [resource]
 script = ExtResource("1_n0xe6")
 id = "pudding"
 display_name = "Pudding the panda"
+temperament = "Pudding would rather finish than fly."
 cost = 3
 pace = 4
-grip = 5
-jump = 3
-reliability = 8
-focus = 6
+grip = 4
+jump = 4
+reliability = 7
+focus = 5
+portrait = ExtResource("2_portrait")

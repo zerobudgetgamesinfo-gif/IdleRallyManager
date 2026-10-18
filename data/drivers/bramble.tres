@@ -1,14 +1,17 @@
 [gd_resource type="Resource" script_class="DriverDef" format=3]
 
 [ext_resource type="Script" path="res://data/driver_def.gd" id="1_d6dw0"]
+[ext_resource type="Texture2D" uid="uid://8tuk4lum5djr" path="res://scenes/draft/art/drivers/bramble.svg" id="2_portrait"]
 
 [resource]
 script = ExtResource("1_d6dw0")
 id = "bramble"
 display_name = "Bramble the dog"
+temperament = "Bramble digs in on loose ground."
 cost = 4
-pace = 5
-grip = 8
+pace = 4
+grip = 7
 jump = 4
-reliability = 7
-focus = 7
+reliability = 5
+focus = 5
+portrait = ExtResource("2_portrait")

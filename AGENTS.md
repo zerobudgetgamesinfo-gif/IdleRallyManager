@@ -33,11 +33,13 @@ res://
   scripts/stage/              # reveal scroll; freed outside stage_reveal
   sim/                        # RefCounted rules, no Node subclass
   data/                       # .tres catalogs
+  audio/                      # reveal loop and incident stinger; bus layout is res://default_bus_layout.tres
   ui/                         # Theme and controls reused across phases
   addons/                     # third-party code only
 docs/                         # design and plans; .gdignore so Godot does not import them
 ```
 
+- Source art sits beside the scene that uses it in `scenes/<feature>/art/`. Portraits live under `scenes/draft/art/` and are referenced from `DriverDef` and `CarDef`.
 - Keep a scene's script next to unusual one-off scenes; put shared gameplay rules in `sim/` and shared window code in `scripts/dock/`.
 - `snake_case` file names. Node names in `PascalCase`.
 - Do not load files from `docs/`. The folder contains an empty `.gdignore`.
@@ -61,7 +63,7 @@ Catalogs (drivers, cars, stages, cards) are custom `Resource` classes saved as `
 - Ids are stable `snake_case` strings. Saves store ids, not resource paths, so a moved `.tres` does not break a file in `user://`.
 - Do not put design data in autoload dictionaries.
 - Runtime championship state is plain data owned by `Session`, serialized to `user://save.json`.
-- Window placement goes to `user://window.cfg` via `ConfigFile`.
+- Window placement and window settings go to `user://window.cfg` via `ConfigFile`: screen, edge, height preset, always-on-top, content scale choice, `exclude_from_capture`, `seen_intro`.
 - Never write into `res://` at runtime.
 
 [Data preferences](https://docs.godotengine.org/en/4.7/tutorials/best_practices/data_preferences.html) is still marked work-in-progress for 4.7. Use it as background. The local rule above wins where they differ: sim data is a `Resource` or a `RefCounted`, not a `Node`.
@@ -87,13 +89,13 @@ Follow the overlay section of [Creating applications](https://docs.godotengine.o
 - The game must not take keyboard focus. Controls in the strip are mouse-operable.
 - Test overlays with the editor's game embedding off (Game view, "Embed Game on Next Play" unchecked). An embedded run hides the bug.
 - The idle strip does not animate forever. No shader that reads `TIME` on a visible canvas item. Low-processor mode only helps when the frame has nothing to redraw.
-- Scale the strip with the window content scale. See [Multiple resolutions](https://docs.godotengine.org/en/4.7/tutorials/rendering/multiple_resolutions.html). Store preset names (`compact`, `cozy`), not a raw pixel height.
+- Scale the strip with the window content scale. See [Multiple resolutions](https://docs.godotengine.org/en/4.7/tutorials/rendering/multiple_resolutions.html). Store preset names (`compact`, `cozy`), not a raw pixel height. `Dock` may temporarily use focus height (draft, service, recap, finished) from `Session.phase()`; that height is not persisted in `window.cfg`.
 
 ## Simulation
 
 - Solvers take data in and return data. They do not read `Time.get_unix_time_from_system()` themselves. `Session` passes the clock in.
 - Random draws use `RandomNumberGenerator` seeded from the championship seed, and they consume numbers in the order [GDD.md](docs/GDD.md) specifies.
-- A new rule ships with a check under `res://sim/checks/` that runs with `godot --headless --path . -s res://sim/checks/run_checks.gd`. The running overlay is not the only test.
+- A new rule ships with a check under `res://sim/checks/` that runs with `godot --headless --path . -s res://sim/checks/run_checks.gd`. The running overlay is not the only test. `run_checks.gd` also starts `res://sim/checks/ui_runner.tscn` in a child process, because a `-s` script has no autoloads; run that scene alone with `godot --headless --path . res://sim/checks/ui_runner.tscn` when working on scenes.
 
 ## Version control
 

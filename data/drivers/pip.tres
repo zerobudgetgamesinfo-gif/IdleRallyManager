@@ -1,14 +1,17 @@
 [gd_resource type="Resource" script_class="DriverDef" format=3]
 
 [ext_resource type="Script" path="res://data/driver_def.gd" id="1_mnvfq"]
+[ext_resource type="Texture2D" uid="uid://bh21nd4m2ge4s" path="res://scenes/draft/art/drivers/pip.svg" id="2_portrait"]
 
 [resource]
 script = ExtResource("1_mnvfq")
 id = "pip"
 display_name = "Pip the pig"
+temperament = "Pip keeps a pocket full of spare parts."
 cost = 2
-pace = 3
-grip = 6
-jump = 2
-reliability = 6
-focus = 4
+pace = 4
+grip = 4
+jump = 4
+reliability = 5
+focus = 5
+portrait = ExtResource("2_portrait")

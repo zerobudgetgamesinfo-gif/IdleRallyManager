@@ -10,17 +10,26 @@ const StageViewScene = preload("res://scenes/stage/stage_view.tscn")
 
 const TEXT_COLOR := Color(0.973, 0.941, 0.878, 1.0)
 const FONT_SIZE := 14
+const FONT_SIZE_SIDE := 12
 const SETTINGS_CLEARANCE := 104.0
+const SIDE_STAGE_HEIGHT := 96.0
+const SIDE_ROW_PORTRAIT := 22.0
+
+const INTRO_LINES: PackedStringArray = [
+	"A rally sits on your desktop",
+	"Choices happen between stages",
+	"You can step away",
+]
 
 var _host: Control
 var _timer: Timer
 var _clock_label: Label
 var _reveal_label: Label
-var _service_view: ServiceView
 var _rebuild_queued := false
 var _debug_offset := 0.0
 var _results_before_advance := 0
 var _skipped_from := -1
+var _intro_shown := false
 
 
 func _ready() -> void:
@@ -28,6 +37,7 @@ func _ready() -> void:
 	Session.phase_changed.connect(_queue_rebuild)
 	Session.recap_ready.connect(_on_recap_ready)
 	Session.championship_finished.connect(_queue_rebuild)
+	Dock.edge_changed.connect(_queue_rebuild)
 	resized.connect(_on_resized)
 	_timer = Timer.new()
 	_timer.one_shot = true
@@ -73,7 +83,7 @@ func skip_ahead() -> void:
 
 
 func _on_resized() -> void:
-	if _host == null:
+	if _host == null or Dock.is_side():
 		return
 	var peek := _host.get_node_or_null("Standings") as Control
 	if peek == null:
@@ -117,7 +127,7 @@ func _rebuild_now() -> void:
 	_rebuild_queued = false
 	_clock_label = null
 	_reveal_label = null
-	_service_view = null
+	_sync_dock_focus()
 	_free_host()
 	var host := VBoxContainer.new()
 	host.name = "PhaseHost"
@@ -126,9 +136,15 @@ func _rebuild_now() -> void:
 	host.add_theme_constant_override("separation", 2)
 	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	host.add_child(_build_header())
+	if Session.phase() != Championship.PHASE_IDLE:
+		_intro_shown = false
 	var body := _build_body()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var phase := Session.phase()
+	if Dock.is_side() and (phase == Championship.PHASE_STAGE_REVEAL or phase == Championship.PHASE_SERVICE):
+		# The column below the scene belongs to the standings.
+		body.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	host.add_child(body)
 	if _shows_standings_peek():
 		host.add_child(_build_standings_peek())
@@ -137,6 +153,16 @@ func _rebuild_now() -> void:
 	_update_dynamic_labels()
 	_sync_timer()
 	Dock.refresh_hit_polygon()
+
+
+func _sync_dock_focus() -> void:
+	var phase := Session.phase()
+	Dock.set_focus(
+		phase == Championship.PHASE_DRAFT
+		or phase == Championship.PHASE_SERVICE
+		or phase == Championship.PHASE_RECAP
+		or phase == Championship.PHASE_FINISHED
+	)
 
 
 func _free_host() -> void:
@@ -148,6 +174,8 @@ func _free_host() -> void:
 
 
 func _build_header() -> Control:
+	if Dock.is_side():
+		return _build_side_header()
 	var row := HBoxContainer.new()
 	row.name = "Header"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -171,6 +199,22 @@ func _build_header() -> Control:
 	return row
 
 
+## The column has no room for a title beside the clock, so they stack.
+func _build_side_header() -> Control:
+	var column := VBoxContainer.new()
+	column.name = "Header"
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := _label(_phase_heading())
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(title)
+	var phase := Session.phase()
+	if phase == Championship.PHASE_STAGE_REVEAL or phase == Championship.PHASE_SERVICE:
+		_clock_label = _label(_clock_text())
+		_clock_label.name = "Clock"
+		column.add_child(_clock_label)
+	return column
+
+
 func _build_body() -> Control:
 	var phase := Session.phase()
 	if phase == Championship.PHASE_DRAFT:
@@ -186,28 +230,85 @@ func _build_body() -> Control:
 	return _build_idle()
 
 
+## Idle is a still picture: the roster, a Start button, and on the very first launch three lines of copy.
+## The intro flag lives in window.cfg (once per machine), not in the championship save.
 func _build_idle() -> Control:
-	var box := VBoxContainer.new()
+	var show_intro := _intro_shown or not Dock.has_seen_intro()
+	if show_intro:
+		_intro_shown = true
+		Dock.mark_intro_seen()
+	var side := Dock.is_side()
+	var box: BoxContainer = VBoxContainer.new() if side else HBoxContainer.new()
 	box.name = "Idle"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 6)
-	var title := _label("Idle Rally Manager")
-	title.add_theme_font_size_override("font_size", 18)
-	box.add_child(title)
+	box.add_theme_constant_override("separation", 12 if not side else 6)
+
+	var text := VBoxContainer.new()
+	text.name = "IdleText"
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 4)
+	if show_intro:
+		var intro := _label("\n".join(INTRO_LINES))
+		intro.name = "Intro"
+		intro.add_theme_font_size_override("font_size", FONT_SIZE_SIDE if side else 13)
+		intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.add_child(intro)
+	else:
+		var title := _label("Idle Rally Manager")
+		title.add_theme_font_size_override("font_size", 18)
+		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.add_child(title)
 	if Session.load_error != "":
 		var error := _label(Session.load_error)
 		error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		box.add_child(error)
+		text.add_child(error)
 	var start := _button("Start championship")
-	start.custom_minimum_size = Vector2(180, 28)
+	start.custom_minimum_size = Vector2(0 if side else 180, 28)
+	start.accessibility_name = "Start championship"
+	start.accessibility_description = "Opens the draft: pick one driver and one car."
 	start.pressed.connect(_on_start_pressed)
-	box.add_child(start)
+	if side:
+		text.add_child(start)
+		box.add_child(_idle_roster(true))
+		box.add_child(text)
+	else:
+		start.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		box.add_child(text)
+		box.add_child(start)
+		box.add_child(_idle_roster(false))
 	return box
+
+
+## The starter drivers, round portraits only. Transparent corners stay inside the strip.
+func _idle_roster(wrap: bool) -> Control:
+	var row: Container = HFlowContainer.new() if wrap else HBoxContainer.new()
+	row.name = "Roster"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 4)
+	var edge := 36.0 if Dock.get_preset() == Dock.PRESET_COMPACT else 48.0
+	for driver in Session.CATALOG.drivers:
+		if driver == null or driver.portrait == null or driver.unlock_reputation > 0:
+			continue
+		row.add_child(_portrait_rect(driver.portrait, edge))
+	return row
+
+
+func _portrait_rect(texture: Texture2D, edge: float) -> TextureRect:
+	var rect := TextureRect.new()
+	rect.texture = texture
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rect.custom_minimum_size = Vector2(edge, edge)
+	rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return rect
 
 
 func _build_draft() -> Control:
 	var draft := DraftViewScene.instantiate() as DraftView
 	draft.clock = Callable(self, "now_unix")
+	draft.vertical = Dock.is_side()
 	draft.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	draft.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	return draft
@@ -225,20 +326,30 @@ func _build_reveal() -> Control:
 	layer.add_child(view)
 	_reveal_label = _label(_reveal_line())
 	_reveal_label.name = "RevealLine"
-	_reveal_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_reveal_label.offset_bottom = 20.0
 	_reveal_label.add_theme_constant_override("outline_size", 4)
 	_reveal_label.add_theme_color_override("font_outline_color", Color(0.12, 0.09, 0.07, 0.9))
+	if Dock.is_side():
+		# The HUD line sits above a fixed band of scene, with the standings under both.
+		var column := VBoxContainer.new()
+		column.name = "RevealColumn"
+		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_theme_constant_override("separation", 2)
+		_reveal_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(_reveal_label)
+		layer.custom_minimum_size = Vector2(0, SIDE_STAGE_HEIGHT)
+		column.add_child(layer)
+		return column
+	_reveal_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_reveal_label.offset_bottom = 20.0
 	layer.add_child(_reveal_label)
 	return layer
 
 
 func _build_service() -> Control:
 	var view := ServiceViewScene.instantiate() as ServiceView
-	view.clock = Callable(self, "now_unix")
+	view.vertical = Dock.is_side()
 	view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_service_view = view
 	return view
 
 
@@ -283,10 +394,13 @@ func _build_finished() -> Control:
 	list.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if champ != null:
 		for row in champ.standings():
-			list.add_child(_label(_finished_line(row)))
+			list.add_child(_finished_row(row))
+		var banked := _label("Dismiss banks %d reputation" % _player_points())
+		banked.add_theme_color_override("font_color", Color(0.973, 0.941, 0.878, 0.72))
+		list.add_child(banked)
 	scroll.add_child(list)
 	box.add_child(scroll)
-	var actions := HBoxContainer.new()
+	var actions: Container = HFlowContainer.new() if Dock.is_side() else HBoxContainer.new()
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	actions.add_theme_constant_override("separation", 8)
 	var dismiss := _button("Dismiss")
@@ -299,7 +413,26 @@ func _build_finished() -> Control:
 	return box
 
 
+## One final-table row: the driver's portrait beside the line and the temperament.
+func _finished_row(row: Dictionary) -> Control:
+	var line := HBoxContainer.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_theme_constant_override("separation", 6)
+	var portrait := _driver_portrait(str(row.get("entry_id", "")))
+	if portrait != null:
+		var rect := _portrait_rect(portrait, 28.0)
+		rect.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		line.add_child(rect)
+	var standing := _label(_finished_line(row))
+	standing.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	standing.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.add_child(standing)
+	return line
+
+
 func _build_standings_peek() -> Control:
+	if Dock.is_side():
+		return _build_standings_column()
 	var peek := RichTextLabel.new()
 	peek.name = "Standings"
 	peek.bbcode_enabled = false
@@ -314,8 +447,52 @@ func _build_standings_peek() -> Control:
 	peek.custom_minimum_size = Vector2(0, _peek_height())
 	peek.add_theme_font_size_override("normal_font_size", FONT_SIZE)
 	peek.add_theme_color_override("default_color", TEXT_COLOR)
-	peek.text = _standings_text()
+	_fill_standings(peek)
 	return peek
+
+
+## Left-edge column: one row per entry, portrait first. Scrolls if the strip is short.
+func _build_standings_column() -> Control:
+	var scroll := _scroll()
+	scroll.name = "Standings"
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	list.add_theme_constant_override("separation", 2)
+	var champ := Session.championship
+	if champ != null:
+		for row in champ.standings():
+			var entry_id := str(row.get("entry_id", ""))
+			var line := HBoxContainer.new()
+			line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			line.add_theme_constant_override("separation", 4)
+			var place := _label(str(int(row.get("position", 0))))
+			place.custom_minimum_size = Vector2(14, 0)
+			line.add_child(place)
+			var portrait := _driver_portrait(entry_id)
+			if portrait != null:
+				line.add_child(_portrait_rect(portrait, SIDE_ROW_PORTRAIT))
+			var name_label := _label("%s %d" % [_short_name(entry_id), int(row.get("points", 0))])
+			name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			name_label.clip_text = true
+			name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			line.add_child(name_label)
+			list.add_child(line)
+	scroll.add_child(list)
+	return scroll
+
+
+func _driver_portrait(entry_id: String) -> Texture2D:
+	var champ := Session.championship
+	if champ == null:
+		return null
+	var entry := champ.find_entry(entry_id)
+	if entry == null:
+		return null
+	var driver := Session.CATALOG.driver(entry.driver_id)
+	if driver == null:
+		return null
+	return driver.portrait
 
 
 func _peek_height() -> float:
@@ -423,27 +600,38 @@ func _player_points() -> int:
 	return 0
 
 
-func _standings_text() -> String:
+## "1 [portrait] You 10   2 [portrait] Miso Dart 8" as one wrapped line of text and small images.
+func _fill_standings(peek: RichTextLabel) -> void:
+	peek.clear()
 	var champ := Session.championship
 	if champ == null:
-		return ""
-	var parts: PackedStringArray = []
+		return
+	var first := true
 	for row in champ.standings():
-		parts.append("%d %s %d" % [
-			int(row.get("position", 0)),
-			_short_name(str(row.get("entry_id", ""))),
-			int(row.get("points", 0)),
-		])
-	return "  ".join(parts)
+		if not first:
+			peek.add_text("   ")
+		first = false
+		var entry_id := str(row.get("entry_id", ""))
+		peek.add_text("%d " % int(row.get("position", 0)))
+		var portrait := _driver_portrait(entry_id)
+		if portrait != null:
+			peek.add_image(portrait, 16, 16)
+			peek.add_text(" ")
+		peek.add_text("%s %d" % [_short_name(entry_id), int(row.get("points", 0))])
 
 
 func _finished_line(row: Dictionary) -> String:
-	return "%d  %s  %d pts  %s" % [
+	var entry_id := str(row.get("entry_id", ""))
+	var line := "%d  %s  %d pts  %s" % [
 		int(row.get("position", 0)),
-		_entry_name(str(row.get("entry_id", ""))),
+		_entry_name(entry_id),
 		int(row.get("points", 0)),
 		_format_mmss(float(row.get("total_time", 0.0))),
 	]
+	var temperament := _temperament(entry_id)
+	if temperament == "":
+		return line
+	return "%s\n%s" % [line, temperament]
 
 
 func _recap_lines() -> PackedStringArray:
@@ -580,6 +768,19 @@ func _short_name(entry_id: String) -> String:
 	return "%s %s" % [driver_name, car_name]
 
 
+func _temperament(entry_id: String) -> String:
+	var champ := Session.championship
+	if champ == null:
+		return ""
+	var entry := champ.find_entry(entry_id)
+	if entry == null:
+		return ""
+	var driver := Session.CATALOG.driver(entry.driver_id)
+	if driver == null:
+		return ""
+	return driver.temperament
+
+
 func _entry_name(entry_id: String) -> String:
 	var champ := Session.championship
 	if champ == null:
@@ -613,8 +814,6 @@ func _update_dynamic_labels() -> void:
 		_set_text(_clock_label, _clock_text())
 	if _reveal_label != null and Session.phase() == Championship.PHASE_STAGE_REVEAL:
 		_set_text(_reveal_label, _reveal_line())
-	if _service_view != null and Session.phase() == Championship.PHASE_SERVICE:
-		_service_view.refresh_clock()
 
 
 func _set_text(label: Label, text: String) -> void:

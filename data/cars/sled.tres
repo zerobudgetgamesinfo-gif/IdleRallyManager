@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CarDef" format=3]
+
+[ext_resource type="Script" path="res://data/car_def.gd" id="1_sled"]
+[ext_resource type="Texture2D" uid="uid://cererrcnwybou" path="res://scenes/draft/art/cars/sled.svg" id="2_portrait"]
+
+[resource]
+script = ExtResource("1_sled")
+id = "sled"
+display_name = "Sled"
+unlock_reputation = 64
+cost = 3
+pace = 3
+grip = 5
+jump = 3
+reliability = 7
+focus = 1
+portrait = ExtResource("2_portrait")

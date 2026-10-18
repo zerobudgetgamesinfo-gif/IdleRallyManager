@@ -1,6 +1,9 @@
 [gd_scene format=3 uid="uid://bn7stageviews"]
 
 [ext_resource type="Script" uid="uid://cm8stageviewg" path="res://scripts/stage/stage_view.gd" id="1_view"]
+[ext_resource type="Texture2D" uid="uid://b5huthbt0qi8e" path="res://scenes/stage/art/rally_car.svg" id="2_car"]
+[ext_resource type="AudioStream" uid="uid://n3cu2okf20wb" path="res://audio/reveal_loop.wav" id="3_loop"]
+[ext_resource type="AudioStream" uid="uid://bj5qomlk1bt1n" path="res://audio/incident_stinger.wav" id="4_stinger"]
 
 [node name="StageView" type="Control"]
 clip_contents = true
@@ -14,20 +17,40 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_view")
 
-[node name="Sky" type="ColorRect" parent="."]
+[node name="Sky" type="TextureRect" parent="."]
 unique_name_in_owner = true
+layout_mode = 0
 mouse_filter = 2
-color = Color(0.38, 0.48, 0.6, 1)
+expand_mode = 1
+stretch_mode = 1
 
-[node name="Ground" type="ColorRect" parent="."]
+[node name="Hills" type="TextureRect" parent="."]
 unique_name_in_owner = true
+layout_mode = 0
 mouse_filter = 2
-color = Color(0.76, 0.61, 0.32, 1)
+expand_mode = 1
+stretch_mode = 1
 
-[node name="Road" type="ColorRect" parent="."]
+[node name="Props" type="TextureRect" parent="."]
 unique_name_in_owner = true
+layout_mode = 0
 mouse_filter = 2
-color = Color(0.4, 0.32, 0.2, 1)
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Ground" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Road" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 1
 
 [node name="Rivals" type="Node2D" parent="."]
 unique_name_in_owner = true
@@ -38,26 +61,16 @@ unique_name_in_owner = true
 [node name="Pose" type="Node2D" parent="Player"]
 unique_name_in_owner = true
 
-[node name="Body" type="ColorRect" parent="Player/Pose"]
-offset_left = -20.0
-offset_top = -16.0
-offset_right = 18.0
-offset_bottom = 0.0
-mouse_filter = 2
-color = Color(0.86, 0.33, 0.2, 1)
-
-[node name="Cabin" type="ColorRect" parent="Player/Pose"]
-offset_left = 0.0
-offset_top = -24.0
-offset_right = 16.0
-offset_bottom = -14.0
-mouse_filter = 2
-color = Color(0.95, 0.74, 0.32, 1)
+[node name="Car" type="Sprite2D" parent="Player/Pose"]
+position = Vector2(-30, -26.1)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("2_car")
+centered = false
 
 [node name="Tag" type="Label" parent="Player/Pose"]
-offset_left = 22.0
+offset_left = 32.0
 offset_top = -16.0
-offset_right = 58.0
+offset_right = 68.0
 offset_bottom = -2.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.973, 0.941, 0.878, 1)
@@ -66,3 +79,14 @@ theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 12
 text = "You"
 vertical_alignment = 1
+
+[node name="Poses" type="AnimationPlayer" parent="."]
+unique_name_in_owner = true
+
+[node name="Loop" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+stream = ExtResource("3_loop")
+
+[node name="Stinger" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+stream = ExtResource("4_stinger")

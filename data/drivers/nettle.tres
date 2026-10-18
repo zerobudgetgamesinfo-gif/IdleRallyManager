@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="DriverDef" format=3]
+
+[ext_resource type="Script" path="res://data/driver_def.gd" id="1_nettle"]
+[ext_resource type="Texture2D" uid="uid://cgcqc8r0pvtcn" path="res://scenes/draft/art/drivers/nettle.svg" id="2_portrait"]
+
+[resource]
+script = ExtResource("1_nettle")
+id = "nettle"
+display_name = "Nettle the hare"
+temperament = "Nettle bets the whole straight."
+unlock_reputation = 24
+cost = 6
+pace = 7
+grip = 3
+jump = 4
+reliability = 4
+focus = 7
+portrait = ExtResource("2_portrait")

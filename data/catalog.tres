@@ -12,17 +12,31 @@
 [ext_resource type="Resource" path="res://data/cards/safe_jump.tres" id="10_oyiyi"]
 [ext_resource type="Resource" path="res://data/cards/safe_focus.tres" id="11_m07uu"]
 [ext_resource type="Resource" path="res://data/cards/safe_rel.tres" id="12_3onb0"]
+[ext_resource type="Resource" path="res://data/cards/pace_2.tres" id="34_pace2"]
+[ext_resource type="Resource" path="res://data/cards/grip_2.tres" id="35_grip2"]
+[ext_resource type="Resource" path="res://data/cards/jump_2.tres" id="36_jump2"]
+[ext_resource type="Resource" path="res://data/cards/focus_2.tres" id="37_foc2"]
+[ext_resource type="Resource" path="res://data/cards/rel_2.tres" id="38_rel2"]
+[ext_resource type="Resource" path="res://data/cards/safe_pace_2.tres" id="39_sp2"]
+[ext_resource type="Resource" path="res://data/cards/safe_grip_2.tres" id="40_sg2"]
+[ext_resource type="Resource" path="res://data/cards/safe_jump_2.tres" id="41_sj2"]
+[ext_resource type="Resource" path="res://data/cards/safe_focus_2.tres" id="42_sf2"]
+[ext_resource type="Resource" path="res://data/cards/safe_rel_2.tres" id="43_sr2"]
 [ext_resource type="Script" uid="uid://bxxyqfidecv4y" path="res://data/car_def.gd" id="13_itf3g"]
 [ext_resource type="Resource" path="res://data/cars/dart.tres" id="14_8rrav"]
 [ext_resource type="Resource" path="res://data/cars/mudbug.tres" id="15_ebbrn"]
 [ext_resource type="Resource" path="res://data/cars/wagon.tres" id="16_7dp55"]
 [ext_resource type="Resource" path="res://data/cars/teapot.tres" id="17_kl665"]
+[ext_resource type="Resource" path="res://data/cars/comet.tres" id="44_comet"]
+[ext_resource type="Resource" path="res://data/cars/sled.tres" id="45_sled"]
 [ext_resource type="Script" uid="uid://dvl24mn022vub" path="res://data/driver_def.gd" id="18_hop4q"]
 [ext_resource type="Resource" path="res://data/drivers/miso.tres" id="19_mh6wi"]
 [ext_resource type="Resource" path="res://data/drivers/kiko.tres" id="20_t4alv"]
 [ext_resource type="Resource" path="res://data/drivers/bramble.tres" id="21_nr6ma"]
 [ext_resource type="Resource" path="res://data/drivers/pudding.tres" id="22_fm0ko"]
 [ext_resource type="Resource" path="res://data/drivers/pip.tres" id="23_jw1ee"]
+[ext_resource type="Resource" path="res://data/drivers/nettle.tres" id="46_net"]
+[ext_resource type="Resource" path="res://data/drivers/moss.tres" id="47_moss"]
 [ext_resource type="Script" uid="uid://cm8kxqoutxve0" path="res://data/catalog.gd" id="24_7lq7g"]
 [ext_resource type="Script" uid="uid://baad6lff3jduu" path="res://data/stage_def.gd" id="25_li7eu"]
 [ext_resource type="Resource" uid="uid://cfqtkvli8a1sr" path="res://data/stages/gravel_valley.tres" id="26_6lk3i"]
@@ -78,9 +92,9 @@ car_id = "wagon"
 
 [resource]
 script = ExtResource("24_7lq7g")
-drivers = Array[ExtResource("18_hop4q")]([ExtResource("19_mh6wi"), ExtResource("20_t4alv"), ExtResource("21_nr6ma"), ExtResource("22_fm0ko"), ExtResource("23_jw1ee")])
-cars = Array[ExtResource("13_itf3g")]([ExtResource("14_8rrav"), ExtResource("15_ebbrn"), ExtResource("16_7dp55"), ExtResource("17_kl665")])
+drivers = Array[ExtResource("18_hop4q")]([ExtResource("19_mh6wi"), ExtResource("20_t4alv"), ExtResource("21_nr6ma"), ExtResource("22_fm0ko"), ExtResource("23_jw1ee"), ExtResource("46_net"), ExtResource("47_moss")])
+cars = Array[ExtResource("13_itf3g")]([ExtResource("14_8rrav"), ExtResource("15_ebbrn"), ExtResource("16_7dp55"), ExtResource("17_kl665"), ExtResource("44_comet"), ExtResource("45_sled")])
 stages = Array[ExtResource("25_li7eu")]([ExtResource("26_6lk3i"), ExtResource("27_r6own"), ExtResource("28_xkmi7"), ExtResource("29_b8vgd"), ExtResource("30_dxta2"), ExtResource("31_v70pv"), ExtResource("32_ulwcb"), ExtResource("33_ok07u")])
-cards = Array[ExtResource("2_lcsjk")]([ExtResource("3_vx4vr"), ExtResource("4_cta3b"), ExtResource("5_wwfey"), ExtResource("6_rhhc8"), ExtResource("7_gx03v"), ExtResource("8_dxvgn"), ExtResource("9_qdmq8"), ExtResource("10_oyiyi"), ExtResource("11_m07uu"), ExtResource("12_3onb0")])
+cards = Array[ExtResource("2_lcsjk")]([ExtResource("3_vx4vr"), ExtResource("4_cta3b"), ExtResource("5_wwfey"), ExtResource("6_rhhc8"), ExtResource("7_gx03v"), ExtResource("8_dxvgn"), ExtResource("9_qdmq8"), ExtResource("10_oyiyi"), ExtResource("11_m07uu"), ExtResource("12_3onb0"), ExtResource("34_pace2"), ExtResource("35_grip2"), ExtResource("36_jump2"), ExtResource("37_foc2"), ExtResource("38_rel2"), ExtResource("39_sp2"), ExtResource("40_sg2"), ExtResource("41_sj2"), ExtResource("42_sf2"), ExtResource("43_sr2")])
 stage_order = PackedStringArray("gravel_valley", "coastal_tarmac", "ridge_jumps", "night_forest", "snow_lane", "long_motorway", "canyon_hairpins", "final_mixed")
 ai_pairs = Array[ExtResource("1_5u5l8")]([SubResource("Resource_j7fk3"), SubResource("Resource_kkrt3"), SubResource("Resource_fmj7f"), SubResource("Resource_hvkc2"), SubResource("Resource_0rtos"), SubResource("Resource_ca5rl"), SubResource("Resource_2f5p7")])

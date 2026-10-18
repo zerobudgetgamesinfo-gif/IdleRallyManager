@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/card_def.gd" id="1_pace2"]
+
+[resource]
+script = ExtResource("1_pace2")
+id = "pace_2"
+label = "Shorten the gearing"
+pace = 2

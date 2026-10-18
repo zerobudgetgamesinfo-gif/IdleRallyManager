@@ -1,14 +1,17 @@
 [gd_resource type="Resource" script_class="DriverDef" format=3]
 
 [ext_resource type="Script" path="res://data/driver_def.gd" id="1_raita"]
+[ext_resource type="Texture2D" uid="uid://ccsj8bbj4xwp0" path="res://scenes/draft/art/drivers/miso.svg" id="2_portrait"]
 
 [resource]
 script = ExtResource("1_raita")
 id = "miso"
 display_name = "Miso the cat"
+temperament = "Miso likes the straights."
 cost = 6
-pace = 7
+pace = 5
 grip = 4
-jump = 5
+jump = 4
 reliability = 5
-focus = 9
+focus = 8
+portrait = ExtResource("2_portrait")

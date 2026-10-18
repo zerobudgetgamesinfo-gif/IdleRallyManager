@@ -4,12 +4,16 @@ extends Resource
 
 @export var id: String = ""
 @export var display_name: String = ""
+## Reputation required to draft this car. Starters stay at 0.
+@export var unlock_reputation: int = 0
 @export var cost: int = 0
 @export var pace: int = 0
 @export var grip: int = 0
 @export var jump: int = 0
 @export var reliability: int = 0
 @export var focus: int = 0
+## Side-view card for the draft and the standings. Presentation only.
+@export var portrait: Texture2D
 
 
 func stat(stat_name: String) -> int:

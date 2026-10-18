@@ -8,6 +8,9 @@ const SETTINGS_BUTTON_WIDTH := 96.0
 const SETTINGS_BUTTON_HEIGHT := 28.0
 const SETTINGS_BUTTON_GAP := 8.0
 const SETTINGS_PANEL_HEIGHT := 88.0
+const SIDE_PAD := 8.0
+const GRIP_LONG := 48.0
+const GRIP_SHORT := 4.0
 const TIME_SCALES: Array[int] = [1, 10, 60, 120]
 
 var _strip_style: StyleBoxFlat
@@ -25,6 +28,18 @@ var _shown_scale := 1.0
 @onready var _compact_button: Button = %Compact
 @onready var _cozy_button: Button = %Cozy
 @onready var _always_on_top: CheckBox = %AlwaysOnTop
+@onready var _mute: CheckBox = %Mute
+@onready var _exclude_capture: CheckBox = %ExcludeCapture
+@onready var _edge_bottom: Button = %EdgeBottom
+@onready var _edge_left: Button = %EdgeLeft
+@onready var _scale_buttons: Dictionary = {
+	"1.0": %Scale100,
+	"1.25": %Scale125,
+	"1.5": %Scale150,
+	"2.0": %Scale200,
+	Dock.SCALE_MATCH: %ScaleMatch,
+}
+@onready var _grip: ColorRect = %Grip
 @onready var _pause_button: Button = %PauseButton
 @onready var _abandon_button: Button = %AbandonButton
 @onready var _quit_button: Button = %QuitButton
@@ -33,12 +48,16 @@ var _shown_scale := 1.0
 func _ready() -> void:
 	_strip_style = _strip.get_theme_stylebox("panel") as StyleBoxFlat
 	_bind_chrome()
-	_apply_layout()
 	if not get_window().size_changed.is_connected(_on_window_size_changed):
 		get_window().size_changed.connect(_on_window_size_changed)
 	if not Session.phase_changed.is_connected(_on_session_phase_changed):
 		Session.phase_changed.connect(_on_session_phase_changed)
+	if not Dock.edge_changed.is_connected(_on_edge_changed):
+		Dock.edge_changed.connect(_on_edge_changed)
+	apply_mute()
 	_sync_championship_controls()
+	_sync_dock_focus()
+	_apply_layout()
 	Dock.refresh_hit_polygon()
 
 
@@ -56,6 +75,19 @@ func _bind_chrome() -> void:
 	else:
 		_cozy_button.set_pressed_no_signal(true)
 	_always_on_top.set_pressed_no_signal(Dock.is_always_on_top())
+	_mute.set_pressed_no_signal(Session.muted)
+	_mute.toggled.connect(_on_mute_toggled)
+	_edge_bottom.toggled.connect(_on_edge_toggled.bind(Dock.EDGE_BOTTOM))
+	_edge_left.toggled.connect(_on_edge_toggled.bind(Dock.EDGE_LEFT))
+	_sync_edge_buttons()
+	for choice in _scale_buttons:
+		var button: Button = _scale_buttons[choice]
+		button.toggled.connect(_on_scale_toggled.bind(str(choice)))
+	_scale_buttons[Dock.SCALE_MATCH].visible = Dock.has_match_scale()
+	_sync_scale_buttons()
+	_exclude_capture.visible = Dock.can_exclude_from_capture()
+	_exclude_capture.set_pressed_no_signal(Dock.is_excluded_from_capture())
+	_exclude_capture.toggled.connect(_on_exclude_capture_toggled)
 	_add_debug_controls()
 
 
@@ -120,17 +152,30 @@ func _apply_layout() -> void:
 	var radius := Dock.CORNER_RADIUS / radius_scale
 	_strip_style.set_corner_radius_all(maxi(roundi(radius), 0))
 
-	var button_span := radius + SETTINGS_BUTTON_WIDTH + SETTINGS_BUTTON_GAP
-	_handle.offset_left = radius
-	_handle.offset_top = 0.0
-	_handle.offset_right = -button_span
-	_handle.offset_bottom = HANDLE_HEIGHT
-
 	_settings_button.offset_left = -(radius + SETTINGS_BUTTON_WIDTH)
 	_settings_button.offset_right = -radius
 	_settings_button.offset_top = 0.0
 	_settings_button.offset_bottom = SETTINGS_BUTTON_HEIGHT
 
+	if Dock.is_side():
+		_apply_side_layout(radius)
+	else:
+		_apply_bottom_layout(radius)
+
+
+## The drag handle is the top bar, the settings cluster sits on the bottom, and the HUD fills the rest.
+func _apply_bottom_layout(radius: float) -> void:
+	var button_span := radius + SETTINGS_BUTTON_WIDTH + SETTINGS_BUTTON_GAP
+	_set_handle_anchors(0.0, 1.0, 0.0, 0.0)
+	_handle.offset_left = radius
+	_handle.offset_top = 0.0
+	_handle.offset_right = -button_span
+	_handle.offset_bottom = HANDLE_HEIGHT
+	_handle.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_set_grip(Vector2(GRIP_LONG, GRIP_SHORT))
+
+	_set_panel_anchors(1.0)
+	_settings_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_settings_panel.offset_left = radius
 	_settings_panel.offset_right = -radius
 	_settings_panel.offset_top = -(radius + SETTINGS_PANEL_HEIGHT)
@@ -140,6 +185,52 @@ func _apply_layout() -> void:
 	_hud.offset_top = maxf(HANDLE_HEIGHT, radius)
 	_hud.offset_right = -radius
 	_hud.offset_bottom = -radius
+
+
+## The strip is a column on the left edge, so the drag handle moves to the inner (right) edge.
+## The settings button stays on top, and the cluster covers the column below it.
+func _apply_side_layout(radius: float) -> void:
+	var top := SETTINGS_BUTTON_HEIGHT + SIDE_PAD
+	_set_handle_anchors(1.0, 1.0, 0.0, 1.0)
+	_handle.offset_left = -HANDLE_HEIGHT
+	_handle.offset_right = 0.0
+	_handle.offset_top = top
+	_handle.offset_bottom = -radius
+	_handle.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_set_grip(Vector2(GRIP_SHORT, GRIP_LONG))
+
+	_set_panel_anchors(0.0)
+	_settings_panel.grow_vertical = Control.GROW_DIRECTION_END
+	_settings_panel.offset_left = SIDE_PAD
+	_settings_panel.offset_right = -(HANDLE_HEIGHT + SIDE_PAD * 0.5)
+	_settings_panel.offset_top = top
+	_settings_panel.offset_bottom = -SIDE_PAD
+
+	_hud.offset_left = SIDE_PAD
+	_hud.offset_top = top
+	_hud.offset_right = -(HANDLE_HEIGHT + SIDE_PAD * 0.5)
+	_hud.offset_bottom = -SIDE_PAD
+
+
+func _set_handle_anchors(left: float, right: float, top: float, bottom: float) -> void:
+	_handle.anchor_left = left
+	_handle.anchor_right = right
+	_handle.anchor_top = top
+	_handle.anchor_bottom = bottom
+
+
+func _set_panel_anchors(top: float) -> void:
+	_settings_panel.anchor_left = 0.0
+	_settings_panel.anchor_right = 1.0
+	_settings_panel.anchor_top = top
+	_settings_panel.anchor_bottom = 1.0
+
+
+func _set_grip(extent: Vector2) -> void:
+	_grip.offset_left = -extent.x * 0.5
+	_grip.offset_right = extent.x * 0.5
+	_grip.offset_top = -extent.y * 0.5
+	_grip.offset_bottom = extent.y * 0.5
 
 
 func _axis_scale(value: float) -> float:
@@ -161,6 +252,7 @@ func _sync_championship_controls() -> void:
 	_pause_button.visible = show_pause
 	_pause_button.disabled = phase == Championship.PHASE_RECAP
 	_pause_button.text = "Resume" if paused else "Pause"
+	_pause_button.accessibility_name = _pause_button.text
 	_abandon_button.visible = champ != null
 	if not _abandon_armed:
 		_abandon_button.text = "Abandon"
@@ -190,6 +282,7 @@ func _on_handle_gui_input(event: InputEvent) -> void:
 func _on_settings_pressed() -> void:
 	_settings_panel.visible = not _settings_panel.visible
 	_settings_button.text = "Close" if _settings_panel.visible else "Settings"
+	_settings_button.accessibility_name = "Close settings" if _settings_panel.visible else "Settings"
 	if not _settings_panel.visible:
 		_reset_abandon_button()
 	_apply_layout()
@@ -203,6 +296,50 @@ func _on_preset_toggled(pressed: bool, preset: String) -> void:
 
 func _on_always_on_top_toggled(enabled: bool) -> void:
 	Dock.set_always_on_top(enabled)
+
+
+## Mute is a bus switch, so the reveal loop keeps running and unmuting is heard at once.
+func apply_mute() -> void:
+	var bus := AudioServer.get_bus_index("Master")
+	if bus >= 0:
+		AudioServer.set_bus_mute(bus, Session.muted)
+
+
+func _on_mute_toggled(enabled: bool) -> void:
+	Session.set_muted(enabled)
+	apply_mute()
+
+
+func _on_edge_toggled(pressed: bool, edge: String) -> void:
+	if pressed:
+		Dock.set_edge(edge)
+
+
+func _on_edge_changed() -> void:
+	_sync_edge_buttons()
+	_apply_layout()
+	Dock.refresh_hit_polygon()
+
+
+func _sync_edge_buttons() -> void:
+	_edge_bottom.set_pressed_no_signal(not Dock.is_side())
+	_edge_left.set_pressed_no_signal(Dock.is_side())
+
+
+func _on_scale_toggled(pressed: bool, choice: String) -> void:
+	if pressed:
+		Dock.set_scale_choice(choice)
+
+
+func _sync_scale_buttons() -> void:
+	var choice := Dock.get_scale_choice()
+	for key in _scale_buttons:
+		var button: Button = _scale_buttons[key]
+		button.set_pressed_no_signal(str(key) == choice)
+
+
+func _on_exclude_capture_toggled(enabled: bool) -> void:
+	Dock.set_exclude_from_capture(enabled)
 
 
 func _on_pause_pressed() -> void:
@@ -271,7 +408,18 @@ func _on_skip_pressed() -> void:
 func _on_session_phase_changed() -> void:
 	_reset_abandon_button()
 	_sync_championship_controls()
+	_sync_dock_focus()
 	_apply_layout()
+
+
+func _sync_dock_focus() -> void:
+	var phase := Session.phase()
+	Dock.set_focus(
+		phase == Championship.PHASE_DRAFT
+		or phase == Championship.PHASE_SERVICE
+		or phase == Championship.PHASE_RECAP
+		or phase == Championship.PHASE_FINISHED
+	)
 
 
 func _reset_abandon_button() -> void:

@@ -13,7 +13,7 @@ static func service_seed(championship_seed: int, stage_index: int) -> int:
 
 
 static func top_stat(stage: StageDef) -> String:
-	# Equal weights keep the earlier stat. Pace wins Long Motorway and Final Mixed.
+	# Equal weights keep the earlier stat in STAT_NAMES.
 	var best := String(Entry.STAT_NAMES[0])
 	var best_weight := stage.weight(best)
 	for index in range(1, Entry.STAT_NAMES.size()):
@@ -33,8 +33,8 @@ static func build(
 	stage_index: int
 ) -> Array[CardDef]:
 	var offer: Array[CardDef] = []
-	var safe_card := _safe_card(catalog, top_stat(next_stage))
-	if safe_card != null and not entry.owns(safe_card.id):
+	var safe_card := _safe_card(catalog, entry, top_stat(next_stage))
+	if safe_card != null:
 		offer.append(safe_card)
 	var drawn := _draw(
 		_general_pool(catalog, entry),
@@ -68,10 +68,10 @@ static func dot(card: CardDef, stage: StageDef) -> float:
 	return score
 
 
-static func _safe_card(catalog: Catalog, stat_name: String) -> CardDef:
+static func _safe_card(catalog: Catalog, entry: Entry, stat_name: String) -> CardDef:
 	var chosen: CardDef = null
 	for card in catalog.cards:
-		if card == null or not card.safe:
+		if card == null or not card.safe or entry.owns(card.id):
 			continue
 		if card.delta(stat_name) <= 0:
 			continue
@@ -107,7 +107,8 @@ static func _general_pool(catalog: Catalog, entry: Entry) -> Array[CardDef]:
 
 static func _blocked_by_cap(catalog: Catalog, entry: Entry, card: CardDef) -> bool:
 	for stat_name in Entry.STAT_NAMES:
-		if card.delta(stat_name) > 0 and _raised(catalog, entry, stat_name) >= RAISE_CAP:
+		var amount := card.delta(stat_name)
+		if amount > 0 and _raised(catalog, entry, stat_name) + amount > RAISE_CAP:
 			return true
 	return false
 

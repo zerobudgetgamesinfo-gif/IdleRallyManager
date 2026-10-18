@@ -90,26 +90,28 @@ Stats are integers. Five stats exist, and every stage uses the same five:
 
 An entry's stat is `clamp(driver + car + upgrades + spare_parts_bonus, 0, 20)`. Spare parts add to reliability only. Drivers carry most of the Focus. Cars carry most of the Pace, Grip, and Jump.
 
-Starter roster. Numbers are the v1 targets; names can change in the content pass if the fantasy still reads clearly.
+Starter roster. The content pass tuned the stat spreads so a specialist and a spare-parts build can both win a stage. Each driver also has a one-line temperament for the standings. Temperament is not a stat and does not enter `solve`.
 
 Drivers:
 
-| Id | Name | Cost | Pace | Grip | Jump | Reliability | Focus |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| miso | Miso the cat | 6 | 7 | 4 | 5 | 5 | 9 |
-| kiko | Kiko the monkey | 5 | 6 | 5 | 9 | 4 | 5 |
-| bramble | Bramble the dog | 4 | 5 | 8 | 4 | 7 | 7 |
-| pudding | Pudding the panda | 3 | 4 | 5 | 3 | 8 | 6 |
-| pip | Pip the pig | 2 | 3 | 6 | 2 | 6 | 4 |
+| Id | Name | Cost | Pace | Grip | Jump | Reliability | Focus | Temperament |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| miso | Miso the cat | 6 | 5 | 4 | 4 | 5 | 8 | Miso likes the straights. |
+| kiko | Kiko the monkey | 5 | 4 | 4 | 7 | 5 | 6 | Kiko lives for the crests. |
+| bramble | Bramble the dog | 4 | 4 | 7 | 4 | 5 | 5 | Bramble digs in on loose ground. |
+| pudding | Pudding the panda | 3 | 4 | 4 | 4 | 7 | 5 | Pudding would rather finish than fly. |
+| pip | Pip the pig | 2 | 4 | 4 | 4 | 5 | 5 | Pip keeps a pocket full of spare parts. |
 
 Cars:
 
 | Id | Name | Cost | Pace | Grip | Jump | Reliability | Focus |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| dart | Dart | 6 | 9 | 4 | 6 | 4 | 0 |
-| mudbug | Mudbug | 5 | 5 | 9 | 4 | 6 | 0 |
-| wagon | Wagon | 4 | 6 | 6 | 4 | 6 | 1 |
-| teapot | Teapot | 2 | 3 | 5 | 2 | 8 | 1 |
+| dart | Dart | 6 | 8 | 4 | 4 | 5 | 0 |
+| mudbug | Mudbug | 5 | 4 | 7 | 4 | 5 | 0 |
+| wagon | Wagon | 4 | 5 | 5 | 4 | 5 | 1 |
+| teapot | Teapot | 2 | 4 | 4 | 3 | 6 | 1 |
+
+Two drivers and two cars sit behind reputation. The draft shows the name and the threshold, and the row is not a button until the garage reaches it. Thresholds are in section 11. The seven rivals stay on the starter roster above.
 
 AI entries use the same catalog. The seven rivals are fixed pairs so a solo championship is comparable from seed to seed:
 
@@ -143,14 +145,14 @@ Weights sum to 1. `base_time_sec` is the fictional time before skill and inciden
 
 | # | Id | Name | Surface | Pace | Grip | Jump | Rel. | Focus | Base |
 | ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | gravel_valley | Gravel Valley | gravel | 0.15 | 0.45 | 0.10 | 0.15 | 0.15 | 720 |
-| 2 | coastal_tarmac | Coastal Tarmac | tarmac | 0.50 | 0.15 | 0.05 | 0.10 | 0.20 | 640 |
-| 3 | ridge_jumps | Ridge Jumps | gravel | 0.15 | 0.20 | 0.40 | 0.15 | 0.10 | 700 |
-| 4 | night_forest | Night Forest | gravel | 0.10 | 0.25 | 0.10 | 0.15 | 0.40 | 780 |
-| 5 | snow_lane | Snow Lane | snow | 0.10 | 0.40 | 0.05 | 0.30 | 0.15 | 760 |
-| 6 | long_motorway | Long Motorway | tarmac | 0.40 | 0.10 | 0.00 | 0.10 | 0.40 | 900 |
-| 7 | canyon_hairpins | Canyon Hairpins | tarmac | 0.15 | 0.35 | 0.25 | 0.15 | 0.10 | 740 |
-| 8 | final_mixed | Final Mixed | gravel | 0.20 | 0.20 | 0.20 | 0.20 | 0.20 | 860 |
+| 1 | gravel_valley | Gravel Valley | gravel | 0.12 | 0.36 | 0.18 | 0.16 | 0.18 | 720 |
+| 2 | coastal_tarmac | Coastal Tarmac | tarmac | 0.40 | 0.12 | 0.10 | 0.16 | 0.22 | 640 |
+| 3 | ridge_jumps | Ridge Jumps | gravel | 0.12 | 0.12 | 0.44 | 0.16 | 0.16 | 700 |
+| 4 | night_forest | Night Forest | gravel | 0.12 | 0.14 | 0.12 | 0.18 | 0.44 | 780 |
+| 5 | snow_lane | Snow Lane | snow | 0.12 | 0.28 | 0.08 | 0.32 | 0.20 | 760 |
+| 6 | long_motorway | Long Motorway | tarmac | 0.42 | 0.12 | 0.00 | 0.20 | 0.26 | 900 |
+| 7 | canyon_hairpins | Canyon Hairpins | tarmac | 0.16 | 0.32 | 0.26 | 0.12 | 0.14 | 740 |
+| 8 | final_mixed | Final Mixed | gravel | 0.18 | 0.18 | 0.24 | 0.20 | 0.20 | 860 |
 
 Each stage has four authored beats. `t_norm` is the fraction of the reveal (and of the fictional distance) where the beat can fire.
 
@@ -234,8 +236,18 @@ Starter card pool (content pass may add more; ids stay stable once shipped):
 | safe_jump | Tape the sump | jump +1 | yes |
 | safe_focus | Read the road book | focus +1 | yes |
 | safe_rel | Top up the fluids | reliability +1 | yes |
+| pace_2 | Shorten the gearing | pace +2 | no |
+| grip_2 | Deep tread | grip +2 | no |
+| jump_2 | Stiffer dampers | jump +2 | no |
+| focus_2 | Mark the crests | focus +2 | no |
+| rel_2 | Second spare wheel | reliability +2 | no |
+| safe_pace_2 | Warm the tyres | pace +1 | yes |
+| safe_grip_2 | Sweep the loose stones | grip +1 | yes |
+| safe_jump_2 | Pad the skid | jump +1 | yes |
+| safe_focus_2 | Walk the notes again | focus +1 | yes |
+| safe_rel_2 | Bleed the brakes | reliability +1 | yes |
 
-The offer builder picks the safe card that matches the next stage's top stat, then fills two non-safe cards from the five general cards without repeating a stat the entry has already raised three times. After three raises in one stat, that stat's general card leaves the pool. This cap keeps a single stat from running away across eight services.
+The offer builder picks the lowest-id safe card that matches the next stage's top stat and is not already owned. If that card was taken earlier, the next safe card for the same stat is offered instead. It then fills two non-safe cards from the general pool. A general card is left out when adding its delta would take that stat past three raises. A `+2` card counts as two raises. This cap keeps a single stat from running away across seven services.
 
 ## 8. AI
 
@@ -252,6 +264,7 @@ The field is solved locally. Nothing about AI requires a second process.
 - Default edge: **bottom** of the usable screen rect (`DisplayServer.screen_get_usable_rect`), so the strip sits above the taskbar.
 - Width: the usable width of the current screen.
 - Height presets, at content scale 1: **compact 144 px**, **cozy 220 px**. Default is cozy. The save stores the preset name, and the pixel height is computed from the content scale.
+- **Focus height** (340 px at content scale 1) is a transient taller strip used only while a choice is open: draft, service, recap, and finished. Idle and stage reveal keep the saved preset. Focus is not written to `window.cfg`; a relaunch restores it from the championship phase.
 - Flags: borderless, transparent viewport, per-pixel transparency, always on top, no focus. See Godot's [Creating applications](https://docs.godotengine.org/en/4.7/tutorials/ui/creating_applications.html) overlay section.
 - The window rectangle is the strip only. Clicks on the rest of the desktop never hit this process.
 - Inside the strip, an 8 px transparent margin is excluded from `mouse_passthrough_polygon`, so rounded corners do not eat clicks meant for the app behind. On Windows the area outside that polygon is also clipped from drawing; keep art inside the polygon.
@@ -273,7 +286,7 @@ The field is solved locally. Nothing about AI requires a second process.
 
 The HUD during a reveal is one line: position, gap to the car ahead, fictional stage clock, championship points. The decision chip is absent during a reveal.
 
-The service view keeps the same height. Cards are a row of three. A pick highlights the card and can be changed until the timer ends.
+When draft, service, recap, or finished opens, the strip snaps to focus height so the controls fit. Leaving those phases returns to the saved compact or cozy height. Service cards are a row of three with full labels; a pick highlights the card and can be changed until the timer ends. Remaining service time is shown in the strip header.
 
 Attention while a choice is open: the decision chip's modulate pulses over about two seconds. There is no OS notification in v1. Tray icons are Windows and macOS only in Godot, and the in-strip pulse is the single cue on every platform.
 
@@ -284,7 +297,10 @@ A single cluster opens inside the strip (not a second OS window):
 - Pause
 - Height preset
 - Always on top
-- Mute (silent until the audio pass adds buses; the control is reserved)
+- Mute (switches the Master bus off; saved in the championship save as `settings.muted`)
+- Edge: bottom or left
+- Content scale: 1x, 1.25x, 1.5x, 2x, and Match on Wayland or macOS
+- Hide from capture (Windows and macOS only)
 - Abandon championship
 - Quit
 
@@ -296,13 +312,22 @@ The car is not a physics body. A `Node2D` position is set from the reveal fracti
 
 Animation must respect low-processor mode. A stage reveal caps redraw at about 30 fps. Service and idle, once the pulse or a short celebration has finished, should sit still so the engine can sleep. Do not use a shader `TIME` uniform on a visible material; it forces a redraw every frame. See the performance notes in [Creating applications](https://docs.godotengine.org/en/4.7/tutorials/ui/creating_applications.html).
 
-Audio, when it arrives, is quiet by default (about -18 dB on the master bus): a soft loop during the reveal, a short stinger on an incident, near-silence in the service park. Mute is instant and saved. The MVP strip plays nothing.
+Audio is quiet by default (-18 dB on the master bus, `default_bus_layout.tres`): a soft loop plays while the stage view is in the tree, a short stinger plays on each incident crossing, and the service park is silent. Mute switches the bus, so unmuting during a reveal needs no restart. Mute is saved.
 
 ## 11. Career
 
-v1 is one championship that can be restarted forever. The roster in section 5 is fully available.
+A profile keeps one garage across championships. Dismissing the final table adds reputation equal to the player's points. There is no multiplier. Quitting on the final table does not bank it; opening that save and dismissing does, once. Abandoning a championship banks nothing.
 
-A later phase adds a garage: finishing a championship grants a small reputation score, and reputation unlocks extra drivers and cars. Unlocks are content gates. They do not change the solver. The single-championship loop ships before any unlock exists.
+Reputation unlocks extra drivers and cars. The starter roster in section 5 stays available at 0. Locked rows are not draft buttons; the draft shows the threshold next to the name. Rivals stay the seven starter pairs, so an unlock does not change the field.
+
+| Id | Kind | Reputation |
+| --- | --- | ---: |
+| nettle | driver | 24 |
+| comet | car | 36 |
+| moss | driver | 48 |
+| sled | car | 64 |
+
+Unlocks are content gates. They do not change the solver. Ids already earned stay in `unlocked_ids` even if a later catalog raises the threshold.
 
 ## 12. Multiplayer seam
 
@@ -348,7 +373,7 @@ User files:
 
 | Path | Contents |
 | --- | --- |
-| `user://window.cfg` | Screen, edge, height preset, always-on-top. `ConfigFile`. |
+| `user://window.cfg` | Screen, edge, height preset, always-on-top, content scale choice, exclude-from-capture, seen-intro. `ConfigFile`. |
 | `user://save.json` | Championship, settings, version. |
 
 The custom user directory name is `idle-rally-manager`.
@@ -381,18 +406,24 @@ Stage 8 has no service. Its reveal goes to finished, or to recap and then finish
 
 ## 14. Save data
 
-`save.json` version **1**:
+`save.json` version **2**:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "settings": {
     "time_scale": 1.0,
     "muted": false
   },
+  "garage": {
+    "reputation": 0,
+    "unlocked_ids": []
+  },
   "championship": null
 }
 ```
+
+Version 1 files migrate by adding an empty garage and keeping the championship. A version newer than the build is left untouched. Any other older version is copied to `user://save.backup.json` and the profile starts idle.
 
 A live championship replaces `null` with:
 
@@ -420,8 +451,9 @@ A live championship replaces `null` with:
 Load rules:
 
 - Missing file: idle state, default settings.
+- `version` 1: migrate in place by adding an empty garage. The championship is kept.
 - `version` newer than the build: do not overwrite the file. Show a one-line error in the strip and stay idle.
-- `version` older than the build: migrate or, if no migrator exists, copy the file to `user://save.backup.json` and start idle.
+- Any other older `version`: copy the file to `user://save.backup.json` and start idle.
 - Write the save on every phase change, every card pick, pause, and `NOTIFICATION_WM_CLOSE_REQUEST`.
 - Window config is saved on move, preset change, and quit. It is not inside `save.json`, so deleting a championship does not forget the monitor.
 

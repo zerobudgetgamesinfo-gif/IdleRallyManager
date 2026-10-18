@@ -6,14 +6,14 @@ const CATALOG: Catalog = preload("res://data/catalog.tres")
 const SESSION_SCRIPT := preload("res://sim/session.gd")
 
 const GOLDEN_FINISH_TIMES: PackedStringArray = [
-	"727.2",
-	"656.512",
-	"715.12",
-	"791.7",
-	"742.216",
-	"951.0",
-	"746.66",
-	"868.256",
+	"735.104",
+	"648.448",
+	"711.088",
+	"792.9168",
+	"756.352",
+	"920.576",
+	"758.5648",
+	"868.6688",
 ]
 
 var _failures: PackedStringArray = []
@@ -32,8 +32,26 @@ func _init() -> void:
 	_check_save_round_trip()
 	_check_newer_version_untouched()
 	_check_older_version_backed_up()
+	_check_version_1_migrates()
+	_check_reputation_once()
+	_check_locked_draft()
 	_check_championship_runs_to_the_end()
 	_cleanup()
+
+
+## The scene checks need the autoloads, which a `-s` script does not get, so they run as a
+## scene in a child process. Run them alone with
+## godot --headless --path . res://sim/checks/ui_runner.tscn
+func _initialize() -> void:
+	var output: Array = []
+	var args := PackedStringArray([
+		"--headless", "--path", ProjectSettings.globalize_path("res://"),
+		"res://sim/checks/ui_runner.tscn",
+	])
+	var code := OS.execute(OS.get_executable_path(), args, output, true)
+	for chunk in output:
+		print(chunk)
+	_expect(code == 0, "scene checks exited with code %d" % code)
 	if _failures.is_empty():
 		print("All checks passed.")
 		quit(0)
@@ -73,14 +91,37 @@ func _check_catalog() -> void:
 	var stages := CATALOG.stages_in_order()
 	_expect(stages.size() == 8, "stage count %s" % stages.size())
 	_expect(CATALOG.ai_pairs.size() == 7, "ai pair count %s" % CATALOG.ai_pairs.size())
+	_expect(CATALOG.drivers.size() == 7, "driver count %s" % CATALOG.drivers.size())
+	_expect(CATALOG.cars.size() == 6, "car count %s" % CATALOG.cars.size())
+	_expect(CATALOG.cards.size() == 20, "card count %s" % CATALOG.cards.size())
+	var starter_drivers := 0
+	var starter_cars := 0
+	for driver in CATALOG.drivers:
+		if driver.unlock_reputation <= 0:
+			starter_drivers += 1
+	for car in CATALOG.cars:
+		if car.unlock_reputation <= 0:
+			starter_cars += 1
+	_expect(starter_drivers == 5, "starter drivers %s" % starter_drivers)
+	_expect(starter_cars == 4, "starter cars %s" % starter_cars)
+	for pair in CATALOG.ai_pairs:
+		_expect(
+			pair.driver_id != "nettle" and pair.driver_id != "moss",
+			"ai driver left the starter roster %s" % pair.driver_id
+		)
+		_expect(
+			pair.car_id != "comet" and pair.car_id != "sled",
+			"ai car left the starter roster %s" % pair.car_id
+		)
 	for stage in stages:
 		var sum := stage.weight_sum()
 		_expect(absf(sum - 1.0) <= 0.001, "%s weights sum to %s" % [stage.id, sum])
 		_expect(stage.beats.size() == 4, "%s beat count %s" % [stage.id, stage.beats.size()])
+	_expect(CATALOG.driver("miso").temperament != "", "miso temperament")
 	_expect(ServiceOffer.top_stat(CATALOG.stage("coastal_tarmac")) == "pace", "coastal top stat")
-	_expect(ServiceOffer.top_stat(CATALOG.stage("long_motorway")) == "pace", "motorway tie")
-	_expect(ServiceOffer.top_stat(CATALOG.stage("final_mixed")) == "pace", "final tie")
-	_expect(ServiceOffer.top_stat(CATALOG.stage("snow_lane")) == "grip", "snow top stat")
+	_expect(ServiceOffer.top_stat(CATALOG.stage("long_motorway")) == "pace", "motorway top stat")
+	_expect(ServiceOffer.top_stat(CATALOG.stage("final_mixed")) == "jump", "final top stat")
+	_expect(ServiceOffer.top_stat(CATALOG.stage("snow_lane")) == "reliability", "snow top stat")
 
 
 func _check_draft() -> void:
@@ -126,6 +167,16 @@ func _check_solver() -> void:
 			str(first.finish_time) == GOLDEN_FINISH_TIMES[index],
 			"%s finish_time %s" % [stage.id, str(first.finish_time)]
 		)
+	var pip := CATALOG.driver("pip")
+	var saved_temperament := pip.temperament
+	pip.temperament = "temperament must not enter the solve"
+	var tempered := StageSolver.solve(
+		entry,
+		stages[0],
+		StageSolver.stage_seed(1, stages[0].id, entry.id)
+	)
+	pip.temperament = saved_temperament
+	_expect(str(tempered.finish_time) == GOLDEN_FINISH_TIMES[0], "temperament changed the solve")
 	var first_championship := Championship.new(CATALOG)
 	first_championship.start_draft()
 	first_championship.confirm_draft("pip", "teapot", 0.0, 1)
@@ -348,6 +399,7 @@ func _check_service() -> void:
 	)
 	_check_pick_tie()
 	_check_raise_cap()
+	_check_second_safe_card()
 	_check_live_default_and_replacement()
 
 
@@ -379,7 +431,32 @@ func _check_raise_cap() -> void:
 	var offer := ServiceOffer.build(local, entry, local.stage_at(1), 1, 0)
 	for card in offer:
 		_expect(card.id != "pace_1", "general pace card stayed in the pool")
+	var narrow := Catalog.new()
+	narrow.stages = local.stages
+	narrow.stage_order = local.stage_order
+	for card_id in ["pace_a", "pace_b", "pace_1", "pace_2", "safe_pace"]:
+		var found := local.card(card_id)
+		if found != null:
+			narrow.cards.append(found)
+	entry.card_ids = ["pace_a", "pace_b"]
+	var under_cap := ServiceOffer.build(narrow, entry, narrow.stage_at(1), 1, 0)
+	var under_ids: PackedStringArray = []
+	for card in under_cap:
+		under_ids.append(card.id)
+	_expect(under_ids.has("pace_1"), "a +1 pace card should still fit under the cap")
+	_expect(not under_ids.has("pace_2"), "a +2 pace card would pass three raises, offer %s" % str(under_ids))
 	_expect(CATALOG.cards.size() == before, "cap test mutated the shared catalog")
+
+
+func _check_second_safe_card() -> void:
+	var entry := _pip_teapot()
+	entry.card_ids = ["safe_pace"]
+	var offer := ServiceOffer.build(CATALOG, entry, CATALOG.stage("coastal_tarmac"), 1, 0)
+	var safe_ids: PackedStringArray = []
+	for card in offer:
+		if card.safe:
+			safe_ids.append(card.id)
+	_expect(safe_ids == PackedStringArray(["safe_pace_2"]), "second safe card %s" % str(safe_ids))
 
 
 func _check_live_default_and_replacement() -> void:
@@ -530,8 +607,126 @@ func _check_older_version_backed_up() -> void:
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	_expect(parsed is Dictionary, "migrated save is not json")
 	if parsed is Dictionary:
-		_expect(int((parsed as Dictionary).get("version", -1)) == 1, "migrated version")
-		_expect((parsed as Dictionary).get("championship", "missing") == null, "migrated championship")
+		_expect(int((parsed as Dictionary).get("version", -1)) == 2, "rewritten version")
+		_expect((parsed as Dictionary).get("championship", "missing") == null, "rewritten championship")
+		var garage: Variant = (parsed as Dictionary).get("garage", null)
+		_expect(
+			garage is Dictionary and int((garage as Dictionary).get("reputation", -1)) == 0,
+			"rewritten garage"
+		)
+
+
+func _check_version_1_migrates() -> void:
+	var path := "user://checks/version1.json"
+	var raw := """{
+	"version": 1,
+	"settings": {"time_scale": 4.0, "muted": true},
+	"championship": {
+		"seed": 3,
+		"phase": "draft",
+		"stage_index": 0,
+		"phase_started_unix": 12.0,
+		"pause_started_unix": null,
+		"entries": [],
+		"results": [],
+		"recap": []
+	}
+}
+"""
+	_write_text(path, raw)
+	var session = _session("version1")
+	session.save_path = path
+	session.load_from_disk()
+	_expect(session.load_error == "", "version 1 load error %s" % session.load_error)
+	_expect(is_equal_approx(session.time_scale, 4.0), "version 1 time scale %s" % session.time_scale)
+	_expect(session.muted, "version 1 mute")
+	_expect(session.garage.reputation == 0, "version 1 reputation")
+	_expect(session.garage.unlocked_ids.is_empty(), "version 1 unlocks")
+	_expect(session.championship != null, "version 1 championship was dropped")
+	if session.championship != null:
+		_expect(session.championship.seed == 3, "version 1 seed")
+		_expect(session.phase() == Championship.PHASE_DRAFT, "version 1 phase %s" % session.phase())
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	_expect(parsed is Dictionary, "version 1 rewrite is not json")
+	if parsed is Dictionary:
+		_expect(int((parsed as Dictionary).get("version", -1)) == 2, "version 1 was not rewritten")
+		var garage: Variant = (parsed as Dictionary).get("garage", null)
+		_expect(garage is Dictionary, "version 1 rewrite has no garage")
+
+
+func _check_reputation_once() -> void:
+	var session = _session("reputation")
+	session.start_draft()
+	_expect(session.confirm_draft("kiko", "teapot", 0.0, 4), "reputation draft")
+	var now := 0.0
+	var guard := 0
+	while session.phase() != Championship.PHASE_FINISHED and guard < 3000:
+		guard += 1
+		if session.phase() == Championship.PHASE_RECAP:
+			session.dismiss_recap()
+			continue
+		if session.phase() == Championship.PHASE_SERVICE:
+			var ids: Array = session.championship.offer_for(Championship.PLAYER_ID).get("card_ids", [])
+			if not ids.is_empty():
+				session.choose_card(str(ids[0]))
+		now += 20.0
+		session.advance(now)
+	_expect(session.phase() == Championship.PHASE_FINISHED, "reputation run ended in %s" % session.phase())
+	_expect(session.garage.reputation == 0, "reputation was banked before dismiss")
+	var points := 0
+	if session.championship != null:
+		for row in session.championship.standings():
+			if str(row.get("entry_id", "")) == Championship.PLAYER_ID:
+				points = int(row.get("points", 0))
+	_expect(points > 0, "player scored no points")
+	session.save_now()
+	var parked = _session("reputation")
+	parked.load_from_disk()
+	_expect(parked.phase() == Championship.PHASE_FINISHED, "reopen left finished")
+	_expect(parked.garage.reputation == 0, "reopen banked reputation early")
+	parked.dismiss_finished()
+	_expect(parked.garage.reputation == points, "banked %s vs %s" % [parked.garage.reputation, points])
+	_expect(parked.championship == null, "dismiss kept the championship")
+	_expect_unlocks(parked, points)
+	var reopened = _session("reputation")
+	reopened.load_from_disk()
+	_expect(reopened.phase() == Championship.PHASE_IDLE, "reopen after dismiss phase %s" % reopened.phase())
+	_expect(reopened.garage.reputation == points, "reopen changed reputation")
+	reopened.dismiss_finished()
+	_expect(reopened.garage.reputation == points, "a second dismiss banked again")
+
+
+func _expect_unlocks(session, points: int) -> void:
+	for driver in CATALOG.drivers:
+		if driver.unlock_reputation <= 0:
+			_expect(not session.garage.unlocked_ids.has(driver.id), "starter driver was unlocked")
+			continue
+		_expect(
+			session.garage.unlocked_ids.has(driver.id) == (points >= driver.unlock_reputation),
+			"driver unlock %s at %s" % [driver.id, points]
+		)
+	for car in CATALOG.cars:
+		if car.unlock_reputation <= 0:
+			_expect(not session.garage.unlocked_ids.has(car.id), "starter car was unlocked")
+			continue
+		_expect(
+			session.garage.unlocked_ids.has(car.id) == (points >= car.unlock_reputation),
+			"car unlock %s at %s" % [car.id, points]
+		)
+
+
+func _check_locked_draft() -> void:
+	var session = _session("locked")
+	session.start_draft()
+	_expect(not session.confirm_draft("nettle", "wagon", 0.0, 1), "locked driver was drafted")
+	_expect(not session.confirm_draft("pip", "comet", 0.0, 1), "locked car was drafted")
+	_expect(session.phase() == Championship.PHASE_DRAFT, "locked draft left the phase")
+	_expect(session.championship.entries.is_empty(), "locked draft built a field")
+	session.garage.reputation = 24
+	_expect(session.confirm_draft("nettle", "wagon", 0.0, 1), "earned driver was still locked")
+	var player: Entry = session.championship.player_entry()
+	_expect(player != null and player.driver_id == "nettle", "drafted driver")
+	_expect(session.championship.find_entry("ai_1").driver_id == "miso", "unlock changed ai_1")
 
 
 func _check_championship_runs_to_the_end() -> void:
