@@ -11,18 +11,39 @@ config_version=5
 [application]
 
 config/name="IdleRallyManager"
-config/features=PackedStringArray("4.7", "Forward Plus")
+run/main_scene="res://scenes/boot/main.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="idle-rally-manager"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+run/low_processor_mode=true
+run/low_processor_mode_sleep_usec=100000
+boot_splash/bg_color=Color(0, 0, 0, 0)
+boot_splash/show_image=false
 config/icon="res://icon.svg"
+
+[autoload]
+
+Dock="*res://scripts/dock/dock.gd"
 
 [display]
 
+window/size/viewport_width=1280
+window/size/viewport_height=220
+window/size/borderless=true
+window/size/always_on_top=true
+window/size/transparent=true
+window/size/no_focus=true
+window/energy_saving/keep_screen_on=false
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/per_pixel_transparency/allowed=true
 
 [physics]
 
-3d/physics_engine="Jolt Physics"
+2d/physics_engine="Dummy"
+3d/physics_engine="Dummy"
 
 [rendering]
 
-rendering_device/driver.windows="d3d12"
+renderer/rendering_method="gl_compatibility"
+viewport/transparent_background=true
