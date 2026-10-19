@@ -28,6 +28,7 @@ var _host: Control
 var _timer: Timer
 var _clock_label: Label
 var _reveal_label: Label
+var _progress_fill: ColorRect
 var _rebuild_queued := false
 var _debug_offset := 0.0
 var _results_before_advance := 0
@@ -130,6 +131,7 @@ func _rebuild_now() -> void:
 	_rebuild_queued = false
 	_clock_label = null
 	_reveal_label = null
+	_progress_fill = null
 	_sync_dock_focus()
 	_free_host()
 	var host := VBoxContainer.new()
@@ -482,9 +484,17 @@ func _build_reveal() -> Control:
 		layer.custom_minimum_size = Vector2(0, SIDE_STAGE_HEIGHT)
 		column.add_child(layer)
 		return column
-	_reveal_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_reveal_label.offset_bottom = 20.0
-	layer.add_child(_reveal_label)
+	# A dark chip keeps the readout legible over every surface; a thin track shows stage progress.
+	var chip := PanelContainer.new()
+	chip.name = "RevealChip"
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_theme_stylebox_override("panel", _reveal_chip_style())
+	chip.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	chip.offset_left = 4.0
+	chip.offset_top = 2.0
+	chip.add_child(_reveal_label)
+	layer.add_child(chip)
+	layer.add_child(_progress_track())
 	return layer
 
 
@@ -496,6 +506,32 @@ func _build_service() -> Control:
 	return view
 
 
+func _reveal_chip_style() -> StyleBoxFlat:
+	var style := Style.chip(Color(0.12, 0.09, 0.07, 0.74))
+	style.content_margin_top = 0
+	style.content_margin_bottom = 0
+	return style
+
+
+func _progress_track() -> Control:
+	var track := ColorRect.new()
+	track.name = "ProgressTrack"
+	track.color = Color(0, 0, 0, 0.35)
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.anchor_top = 1.0
+	track.anchor_bottom = 1.0
+	track.anchor_right = 1.0
+	track.offset_top = -3.0
+	_progress_fill = ColorRect.new()
+	_progress_fill.name = "ProgressFill"
+	_progress_fill.color = Palette.AMBER
+	_progress_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_progress_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_progress_fill.anchor_right = _reveal_fraction()
+	track.add_child(_progress_fill)
+	return track
+
+
 func _build_recap() -> Control:
 	var box := VBoxContainer.new()
 	box.name = "Recap"
@@ -505,13 +541,15 @@ func _build_recap() -> Control:
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	list.add_theme_constant_override("separation", 4)
 	var lines := _recap_lines()
 	if lines.is_empty():
 		lines.append("Caught up")
 	for line in lines:
 		var row := _label(line)
 		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		list.add_child(row)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		list.add_child(Widgets.row_card(row))
 	scroll.add_child(list)
 	box.add_child(scroll)
 	var dismiss := _button("Dismiss")
@@ -536,9 +574,11 @@ func _build_finished() -> Control:
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	list.add_theme_constant_override("separation", 4)
 	if champ != null:
 		for row in champ.standings():
-			list.add_child(_finished_row(row))
+			var is_player := str(row.get("entry_id", "")) == Championship.PLAYER_ID
+			list.add_child(Widgets.row_card(_finished_row(row), is_player))
 		var banked := _label("Dismiss banks %d reputation" % _player_points())
 		banked.add_theme_color_override("font_color", Palette.CREAM_MUTED)
 		list.add_child(banked)
@@ -562,6 +602,7 @@ func _finished_row(row: Dictionary) -> Control:
 	var line := HBoxContainer.new()
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.add_theme_constant_override("separation", 6)
+	line.add_child(Widgets.rank_badge(int(row.get("position", 0))))
 	var portrait := _driver_portrait(str(row.get("entry_id", "")))
 	if portrait != null:
 		var rect := _portrait_rect(portrait, 28.0)
@@ -958,6 +999,8 @@ func _update_dynamic_labels() -> void:
 		_set_text(_clock_label, _clock_text())
 	if _reveal_label != null and Session.phase() == Championship.PHASE_STAGE_REVEAL:
 		_set_text(_reveal_label, _reveal_line())
+		if _progress_fill != null:
+			_progress_fill.anchor_right = _reveal_fraction()
 
 
 func _set_text(label: Label, text: String) -> void:

@@ -8,18 +8,11 @@ extends Control
 const PARK_TEXTURE: Texture2D = preload("res://scenes/service/art/park.svg")
 const TEXT_COLOR := Palette.CREAM
 const MUTED_COLOR := Palette.CREAM_MUTED
-const ICON_COLORS := {
-	"pace": Color(0.72, 0.42, 0.28, 1.0),
-	"grip": Color(0.38, 0.58, 0.42, 1.0),
-	"jump": Color(0.42, 0.52, 0.72, 1.0),
-	"reliability": Color(0.62, 0.55, 0.32, 1.0),
-	"focus": Color(0.55, 0.42, 0.62, 1.0),
-}
 const FONT_SIZE := 14
 const FONT_SIZE_AWAY := 12
 const FONT_SIZE_VERTICAL := 12
 const CARD_MIN_HEIGHT := 80.0
-const ICON_SIZE := 18.0
+const ICON_SIZE := 30.0
 const PULSE_SEC := 1.0
 
 ## Stack the cards instead of laying them in a row.
@@ -133,13 +126,7 @@ func _card_panel(card: CardDef) -> PanelContainer:
 	body.add_theme_constant_override("separation", 8)
 	panel.add_child(body)
 
-	var icon := ColorRect.new()
-	icon.name = "Icon"
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
-	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	icon.color = _icon_color(card)
-	body.add_child(icon)
+	body.add_child(Widgets.stat_icon(_icon_stat(card), ICON_SIZE))
 
 	var text_box := VBoxContainer.new()
 	text_box.name = "Text"
@@ -151,6 +138,8 @@ func _card_panel(card: CardDef) -> PanelContainer:
 
 	var title := _make_label("", TEXT_COLOR)
 	title.name = "Title"
+	title.theme_type_variation = &"TitleLabel"
+	title.add_theme_font_size_override("font_size", FONT_SIZE + 1)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_box.add_child(title)
@@ -223,17 +212,18 @@ func _delta_text(card: CardDef) -> String:
 		var amount := card.delta(String(stat_name))
 		if amount == 0:
 			continue
-		parts.append("%s %+d" % [String(stat_name).capitalize(), amount])
+		parts.append("%s %s %d" % ["▲" if amount > 0 else "▼", String(stat_name).capitalize(), absi(amount)])
 	if parts.is_empty():
 		return "—"
 	return ", ".join(parts)
 
 
-func _icon_color(card: CardDef) -> Color:
+## The first stat the card raises picks its icon.
+func _icon_stat(card: CardDef) -> String:
 	for stat_name in Entry.STAT_NAMES:
 		if card.delta(String(stat_name)) > 0:
-			return ICON_COLORS.get(String(stat_name), Color(0.55, 0.50, 0.42, 1.0))
-	return Color(0.55, 0.50, 0.42, 1.0)
+			return String(stat_name)
+	return "none"
 
 
 func _on_card_pressed(card_id: String) -> void:

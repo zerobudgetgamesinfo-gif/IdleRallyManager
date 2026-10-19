@@ -8,8 +8,8 @@ const TEXT_COLOR := Palette.CREAM
 const MUTED_COLOR := Palette.CREAM_MUTED
 const FONT_SIZE := 14
 const FONT_SIZE_VERTICAL := 12
-const ROW_HEIGHT := 30.0
-const ICON_EDGE := 24
+const ROW_HEIGHT := 34.0
+const ICON_EDGE := 28
 
 var clock: Callable = Callable()
 ## Stack the driver and car lists instead of placing them side by side.
@@ -21,6 +21,7 @@ var _driver_group: ButtonGroup
 var _car_group: ButtonGroup
 var _hint: Label
 var _total: Label
+var _meter: ProgressBar
 var _good_at: Label
 var _confirm: Button
 var _drivers_box: VBoxContainer
@@ -69,6 +70,17 @@ func _build() -> void:
 	_drivers_box = _column(columns, "Drivers")
 	_cars_box = _column(columns, "Cars")
 
+	_meter = ProgressBar.new()
+	_meter.name = "Budget"
+	_meter.min_value = 0.0
+	_meter.max_value = float(Championship.BUDGET)
+	_meter.show_percentage = false
+	_meter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_meter.custom_minimum_size = Vector2(0, 8)
+	_meter.add_theme_stylebox_override("background", Style.box(Color(0, 0, 0, 0.35), 4))
+	_meter.add_theme_stylebox_override("fill", Style.box(Palette.AMBER, 4))
+	root.add_child(_meter)
+
 	_total = _make_label("", TEXT_COLOR)
 	_total.name = "Total"
 	_total.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -113,7 +125,9 @@ func _column(parent: BoxContainer, title: String) -> VBoxContainer:
 	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL if not vertical else Control.SIZE_SHRINK_BEGIN
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrap.add_theme_constant_override("separation", 4)
-	var heading := _make_label(title, MUTED_COLOR)
+	var heading := _make_label(title, Palette.AMBER_LIGHT)
+	heading.theme_type_variation = &"TitleLabel"
+	heading.add_theme_font_size_override("font_size", _font_size() + 2)
 	wrap.add_child(heading)
 	var list := VBoxContainer.new()
 	list.name = "List"
@@ -301,6 +315,9 @@ func _refresh_summary() -> void:
 		_total.text = "Spent %d / %d · over budget" % [cost, Championship.BUDGET]
 		_good_at.text = ""
 	_confirm.disabled = not legal
+	_meter.value = minf(float(cost), float(Championship.BUDGET))
+	var over := cost > Championship.BUDGET
+	_meter.add_theme_stylebox_override("fill", Style.box(Palette.CLAY if over else Palette.AMBER, 4))
 	_good_at.visible = _good_at.text != ""
 
 

@@ -18,6 +18,17 @@ func _init(tree: SceneTree, expect: Callable) -> void:
 
 
 func run() -> void:
+	# Dock loads the player's window.cfg, so pin the layout the checks assume and put it back after.
+	var stored_preset := Dock.get_preset()
+	var stored_edge := Dock.get_edge()
+	Dock.set_edge(Dock.EDGE_BOTTOM)
+	Dock.set_preset(Dock.PRESET_COZY)
+	await _run_checks()
+	Dock.set_preset(stored_preset)
+	Dock.set_edge(stored_edge)
+
+
+func _run_checks() -> void:
 	_check_geometry()
 	_check_dock_settings()
 	_check_assets()
