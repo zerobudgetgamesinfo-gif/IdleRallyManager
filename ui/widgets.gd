@@ -74,3 +74,50 @@ static func chip_label(text: String, fill := Color(0.12, 0.09, 0.07, 0.72)) -> P
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(label)
 	return panel
+
+
+const HOVER_SCALE := 1.03
+const PRESS_SCALE := 0.97
+const POP_SEC := 0.1
+
+
+## Hover grows a control a little and a press squashes it. Each tween is a one-shot that ends in
+## 0.1 s and starts only from the pointer, so a still strip has none running.
+static func add_pop(control: Control) -> void:
+	control.resized.connect(func() -> void: control.pivot_offset = control.size * 0.5)
+	control.mouse_entered.connect(_pop.bind(control, HOVER_SCALE))
+	control.mouse_exited.connect(_pop.bind(control, 1.0))
+	if control is BaseButton:
+		control.button_down.connect(_pop.bind(control, PRESS_SCALE))
+		control.button_up.connect(_pop.bind(control, HOVER_SCALE))
+
+
+static func _pop(control: Control, target: float) -> void:
+	if not control.is_inside_tree():
+		return
+	var tween := control.create_tween()
+	tween.tween_property(control, "scale", Vector2(target, target), POP_SEC)
+
+
+## One burst of paper confetti for a win. It emits once and stops.
+static func confetti() -> CPUParticles2D:
+	var burst := CPUParticles2D.new()
+	burst.name = "Confetti"
+	burst.one_shot = true
+	burst.emitting = true
+	burst.amount = 28
+	burst.lifetime = 1.4
+	burst.explosiveness = 1.0
+	burst.direction = Vector2(0, -1)
+	burst.spread = 70.0
+	burst.initial_velocity_min = 90.0
+	burst.initial_velocity_max = 170.0
+	burst.gravity = Vector2(0, 260)
+	burst.scale_amount_min = 2.0
+	burst.scale_amount_max = 4.0
+	var gradient := Gradient.new()
+	gradient.colors = PackedColorArray([Palette.AMBER_LIGHT, Palette.SAGE_LIGHT, Palette.CLAY, Palette.CREAM])
+	gradient.offsets = PackedFloat32Array([0.0, 0.33, 0.66, 1.0])
+	gradient.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
+	burst.color_initial_ramp = gradient
+	return burst

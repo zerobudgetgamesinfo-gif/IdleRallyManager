@@ -17,6 +17,8 @@ const TIME_SCALES: Array[int] = [1, 10, 60, 120]
 
 var _strip_style: StyleBoxFlat
 var _skip_button: Button
+var _debug_box: HBoxContainer
+var _groups: Array[PanelContainer] = []
 var _scale_box: SpinBox
 var _abandon_armed := false
 var _shown_scale := 1.0
@@ -53,6 +55,8 @@ func _ready() -> void:
 	_add_sheen()
 	_strip_style = _strip.get_theme_stylebox("panel") as StyleBoxFlat
 	_bind_chrome()
+	if not get_viewport().size_changed.is_connected(_on_viewport_size_changed):
+		get_viewport().size_changed.connect(_on_viewport_size_changed)
 	if not get_window().size_changed.is_connected(_on_window_size_changed):
 		get_window().size_changed.connect(_on_window_size_changed)
 	if not Session.phase_changed.is_connected(_on_session_phase_changed):
@@ -108,13 +112,71 @@ func _bind_chrome() -> void:
 	_exclude_capture.visible = Dock.can_exclude_from_capture()
 	_exclude_capture.set_pressed_no_signal(Dock.is_excluded_from_capture())
 	_exclude_capture.toggled.connect(_on_exclude_capture_toggled)
+	_group_settings()
 	_add_debug_controls()
+
+
+## Settings read as five labelled groups instead of one run of buttons. The nodes keep their names
+## and unique-name lookups; only their parents change.
+func _group_settings() -> void:
+	var row := _settings_row
+	var groups: Array = [
+		[row.get_node("Height"), _compact_button, _cozy_button, _ticker_button],
+		[_always_on_top, _mute, _exclude_capture],
+		[row.get_node("EdgeLabel"), _edge_bottom, _edge_left],
+		[row.get_node("ScaleLabel")] + _scale_buttons.values(),
+		[_pause_button, _abandon_button, _quit_button],
+	]
+	for members in groups:
+		var panel := PanelContainer.new()
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_theme_stylebox_override("panel", _group_style())
+		var box := HFlowContainer.new()
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_theme_constant_override("h_separation", 6)
+		box.add_theme_constant_override("v_separation", 2)
+		panel.add_child(box)
+		row.add_child(panel)
+		for member in members:
+			(member as Node).reparent(box, false)
+		_groups.append(panel)
+		if members[0] is Label:
+			(members[0] as Label).add_theme_color_override("font_color", Palette.AMBER_LIGHT)
+
+
+func _side_row_width() -> float:
+	var panel_margin := _settings_panel.get_theme_stylebox("panel").get_minimum_size().x
+	var stretch := _axis_scale(get_viewport().get_stretch_transform().get_scale().x)
+	var width := get_viewport_rect().size.x - 2.0 * Dock.PASSTHROUGH_MARGIN / stretch
+	width -= SIDE_PAD + HANDLE_HEIGHT + SIDE_PAD * 0.5 + panel_margin
+	return maxf(width, 40.0)
+
+
+func _on_viewport_size_changed() -> void:
+	if Dock.is_side():
+		_size_groups(_side_row_width())
+
+
+## A flow inside a flow collapses to its narrowest column, so each group is given a width: its natural
+## one on the bottom edge, and the whole row on the side column where its buttons wrap.
+func _size_groups(row_width: float) -> void:
+	for panel in _groups:
+		var box := panel.get_child(0) as Container
+		var style := panel.get_theme_stylebox("panel")
+		var natural := style.get_minimum_size().x
+		var count := 0
+		for child in box.get_children():
+			natural += (child as Control).get_combined_minimum_size().x
+			count += 1
+		natural += 6.0 * maxf(count - 1, 0.0)
+		panel.custom_minimum_size.x = row_width if Dock.is_side() else natural
 
 
 ## Debug builds only. A node saved in the scene would ship in a release export.
 func _add_debug_controls() -> void:
 	if not OS.is_debug_build():
 		return
+	_debug_box = _make_debug_group()
 	var scale_label := Label.new()
 	scale_label.text = "Time scale"
 	scale_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -144,9 +206,45 @@ func _add_debug_controls() -> void:
 	_insert_before_quit(_skip_button)
 
 
+func _group_style() -> StyleBoxFlat:
+	var style := Style.chip(Palette.BROWN_DEEP)
+	style.content_margin_top = 0
+	style.content_margin_bottom = 0
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	return style
+
+
+## One chip with a toggle; the debug controls are hidden until it is pressed.
+func _make_debug_group() -> HBoxContainer:
+	var panel := PanelContainer.new()
+	panel.name = "DebugGroup"
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", _group_style())
+	var box := HBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+	var content := HBoxContainer.new()
+	content.name = "DebugContent"
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_theme_constant_override("separation", 6)
+	content.visible = false
+	var toggle := _make_button("Debug ▸")
+	toggle.name = "DebugToggle"
+	toggle.toggle_mode = true
+	toggle.toggled.connect(func(open: bool) -> void:
+		content.visible = open
+		toggle.text = "Debug ▾" if open else "Debug ▸"
+	)
+	box.add_child(toggle)
+	box.add_child(content)
+	_settings_row.add_child(panel)
+	return content
+
+
 func _insert_before_quit(node: Control) -> void:
-	_settings_row.add_child(node)
-	_settings_row.move_child(node, _quit_button.get_index())
+	_debug_box.add_child(node)
 
 
 func _make_button(text: String) -> Button:
@@ -205,6 +303,7 @@ func _apply_bottom_layout(radius: float) -> void:
 	_settings_panel.offset_top = -(radius + SETTINGS_PANEL_HEIGHT)
 	_settings_panel.offset_bottom = -radius
 
+	_size_groups(0.0)
 	_hud.offset_left = radius
 	_hud.offset_top = maxf(HANDLE_HEIGHT, radius)
 	_hud.offset_right = -radius
@@ -236,6 +335,7 @@ func _apply_ticker_layout(radius: float) -> void:
 	_settings_panel.offset_bottom = -(TICKER_PAD + row + TICKER_PAD)
 	_settings_panel.offset_top = _settings_panel.offset_bottom - SETTINGS_PANEL_HEIGHT
 
+	_size_groups(0.0)
 	_hud.offset_left = radius
 	_hud.offset_top = TICKER_HANDLE_HEIGHT
 	_hud.offset_right = -radius
@@ -261,6 +361,7 @@ func _apply_side_layout(radius: float) -> void:
 	_settings_panel.offset_top = top
 	_settings_panel.offset_bottom = -SIDE_PAD
 
+	_size_groups(_side_row_width())
 	_hud.offset_left = SIDE_PAD
 	_hud.offset_top = top
 	_hud.offset_right = -(HANDLE_HEIGHT + SIDE_PAD * 0.5)

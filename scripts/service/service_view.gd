@@ -119,6 +119,7 @@ func _card_panel(card: CardDef) -> PanelContainer:
 	panel.set_meta("card_id", card.id)
 	panel.set_meta("safe", card.safe)
 	panel.gui_input.connect(_on_card_gui_input.bind(card.id))
+	Widgets.add_pop(panel)
 
 	var body := HBoxContainer.new()
 	body.name = "Body"

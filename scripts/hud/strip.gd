@@ -7,6 +7,7 @@ extends Control
 const DraftViewScene = preload("res://scenes/draft/draft_view.tscn")
 const ServiceViewScene = preload("res://scenes/service/service_view.tscn")
 const StageViewScene = preload("res://scenes/stage/stage_view.tscn")
+const EMBLEM: Texture2D = preload("res://ui/art/emblem.svg")
 
 const TEXT_COLOR := Palette.CREAM
 const FONT_SIZE := 14
@@ -220,18 +221,46 @@ func _build_ticker_row(phase: String, open: bool) -> Control:
 	return row
 
 
+## Emblem and wordmark. The wordmark is a Label in the title font, so it follows the theme.
+func _title_lockup(font_size: int, emblem_height: float) -> Control:
+	var lockup := HBoxContainer.new()
+	lockup.name = "Title"
+	lockup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lockup.add_theme_constant_override("separation", 8)
+	var emblem := TextureRect.new()
+	emblem.texture = EMBLEM
+	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	emblem.custom_minimum_size = Vector2(emblem_height * 72.0 / 44.0, emblem_height)
+	emblem.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lockup.add_child(emblem)
+	var label := _label("Idle Rally Manager")
+	label.theme_type_variation = &"TitleLabel"
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", Palette.AMBER_LIGHT)
+	label.add_theme_constant_override("outline_size", 4)
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.clip_text = true
+	lockup.add_child(label)
+	return lockup
+
+
 func _fill_idle_ticker(row: HBoxContainer) -> void:
 	var show_intro := _intro_shown or not Dock.has_seen_intro()
 	if show_intro:
 		_intro_shown = true
 		Dock.mark_intro_seen()
-	var title := _label("  ·  ".join(INTRO_LINES) if show_intro else "Idle Rally Manager")
-	title.name = "Intro" if show_intro else "Title"
-	if not show_intro:
-		title.theme_type_variation = &"TitleLabel"
+	var title: Control
+	if show_intro:
+		var intro := _label("  ·  ".join(INTRO_LINES))
+		intro.name = "Intro"
+		intro.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		intro.clip_text = true
+		title = intro
+	else:
+		title = _title_lockup(18, 28.0)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title.clip_text = true
 	row.add_child(title)
 	var start := _button("Start championship")
 	start.custom_minimum_size = Vector2(160, 0)
@@ -399,11 +428,7 @@ func _build_idle() -> Control:
 		intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text.add_child(intro)
 	else:
-		var title := _label("Idle Rally Manager")
-		title.theme_type_variation = &"TitleLabel"
-		title.add_theme_font_size_override("font_size", 20)
-		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		text.add_child(title)
+		text.add_child(_title_lockup(20, 44.0))
 	if Session.load_error != "":
 		var error := _label(Session.load_error)
 		error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -570,6 +595,10 @@ func _build_finished() -> Control:
 		banner.theme_type_variation = &"TitleLabel"
 		banner.add_theme_font_size_override("font_size", 18)
 		box.add_child(banner)
+		if champ != null and _player_won(champ):
+			var burst := Widgets.confetti()
+			burst.position = Vector2(60.0, 10.0)
+			banner.add_child(burst)
 	var scroll := _scroll()
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -887,6 +916,11 @@ func _sentence_label(label: String) -> String:
 	return label.substr(0, 1).to_lower() + label.substr(1)
 
 
+func _player_won(champ: Championship) -> bool:
+	var table := champ.standings()
+	return not table.is_empty() and str(table[0].get("entry_id", "")) == Championship.PLAYER_ID
+
+
 func _winner_line() -> String:
 	var champ := Session.championship
 	if champ == null:
@@ -1059,6 +1093,7 @@ func _button(text: String) -> Button:
 	button.focus_mode = Control.FOCUS_NONE
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.add_theme_font_size_override("font_size", FONT_SIZE)
+	Widgets.add_pop(button)
 	return button
 
 

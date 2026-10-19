@@ -15,6 +15,9 @@ const SKY_SPEED := 72.0
 const HILLS_SPEED := 130.0
 const GROUND_SPEED := 220.0
 const ROAD_SPEED := 320.0
+const FORE_SPEED := 420.0
+const FORE_HEIGHT := 20.0
+const FORE_MIN_VIEW := 72.0
 const GAP_PX_PER_SEC := 1.5
 const PLAYER_X_START := 0.24
 const PLAYER_X_END := 0.40
@@ -32,6 +35,7 @@ const POSE_HOP := &"hop"
 const POSE_WOBBLE := &"wobble"
 
 const RIVAL_TEXTURE: Texture2D = preload("res://scenes/stage/art/car_rival.svg")
+const SHADOW_TEXTURE: Texture2D = preload("res://scenes/stage/art/car_shadow.svg")
 const SURFACE_TEXTURES := {
 	"gravel": {
 		"sky": preload("res://scenes/stage/art/sky_gravel.svg"),
@@ -39,6 +43,7 @@ const SURFACE_TEXTURES := {
 		"props": preload("res://scenes/stage/art/props_gravel.svg"),
 		"ground": preload("res://scenes/stage/art/ground_gravel.svg"),
 		"road": preload("res://scenes/stage/art/road_gravel.svg"),
+		"fore": preload("res://scenes/stage/art/fore_gravel.svg"),
 	},
 	"tarmac": {
 		"sky": preload("res://scenes/stage/art/sky_tarmac.svg"),
@@ -46,6 +51,7 @@ const SURFACE_TEXTURES := {
 		"props": preload("res://scenes/stage/art/props_tarmac.svg"),
 		"ground": preload("res://scenes/stage/art/ground_tarmac.svg"),
 		"road": preload("res://scenes/stage/art/road_tarmac.svg"),
+		"fore": preload("res://scenes/stage/art/fore_tarmac.svg"),
 	},
 	"snow": {
 		"sky": preload("res://scenes/stage/art/sky_snow.svg"),
@@ -53,6 +59,7 @@ const SURFACE_TEXTURES := {
 		"props": preload("res://scenes/stage/art/props_snow.svg"),
 		"ground": preload("res://scenes/stage/art/ground_snow.svg"),
 		"road": preload("res://scenes/stage/art/road_snow.svg"),
+		"fore": preload("res://scenes/stage/art/fore_snow.svg"),
 	},
 }
 const RIVAL_COLORS: Array[Color] = [
@@ -84,6 +91,7 @@ var _rivals_sprites: Array[Sprite2D] = []
 @onready var _props: TextureRect = %Props
 @onready var _ground: TextureRect = %Ground
 @onready var _road: TextureRect = %Road
+@onready var _fore: TextureRect = %Fore
 @onready var _rivals: Node2D = %Rivals
 @onready var _player: Node2D = %Player
 @onready var _pose: Node2D = %Pose
@@ -110,10 +118,23 @@ func _exit_tree() -> void:
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_apply_player_car()
+	_add_shadow()
 	_build_rivals()
 	_build_pose_clips()
 	_poses.animation_finished.connect(_on_pose_finished)
 	_loop.play()
+
+
+## A soft ellipse under the car. It stays on the road when the pose hops.
+func _add_shadow() -> void:
+	var shadow := Sprite2D.new()
+	shadow.name = "Shadow"
+	shadow.texture = SHADOW_TEXTURE
+	shadow.centered = false
+	shadow.position = Vector2(0.0, -6.0)
+	shadow.scale = Vector2(1.7, 1.0)
+	_player.add_child(shadow)
+	_player.move_child(shadow, 0)
 
 
 ## The drafted car's portrait stands in for the player; no championship leaves it blank.
@@ -295,6 +316,9 @@ func _draw_frame(f: float, view_size: Vector2, show_rivals: bool) -> void:
 		view_size.x + GROUND_SPEED, view_size.y - (road_y - GROUND_LIP)
 	)
 	_place_layer(_road, -f * ROAD_SPEED, road_y - ROAD_TOP, view_size.x + ROAD_SPEED, ROAD_HEIGHT)
+	# The foreground sits in front of the car at the bottom edge, only where the view is tall enough.
+	_fore.visible = view_size.y >= FORE_MIN_VIEW
+	_place_layer(_fore, -f * FORE_SPEED, view_size.y - FORE_HEIGHT, view_size.x + FORE_SPEED, FORE_HEIGHT)
 	var player_x := lerpf(view_size.x * PLAYER_X_START, view_size.x * PLAYER_X_END, f)
 	player_x = clampf(player_x, 36.0, maxf(36.0, view_size.x - 72.0))
 	_player.position = Vector2(player_x, road_y)
@@ -353,6 +377,7 @@ func _apply_surface() -> void:
 	_props.texture = textures["props"]
 	_ground.texture = textures["ground"]
 	_road.texture = textures["road"]
+	_fore.texture = textures["fore"]
 
 
 func _surface_for_stage(stage_id: String) -> String:

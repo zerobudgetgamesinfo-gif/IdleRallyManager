@@ -79,6 +79,13 @@ theme_override_font_sizes/font_size = 12
 text = "You"
 vertical_alignment = 1
 
+[node name="Fore" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 1
+
 [node name="Poses" type="AnimationPlayer" parent="."]
 unique_name_in_owner = true
 
