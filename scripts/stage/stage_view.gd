@@ -87,6 +87,7 @@ var _rivals_sprites: Array[Sprite2D] = []
 @onready var _rivals: Node2D = %Rivals
 @onready var _player: Node2D = %Player
 @onready var _pose: Node2D = %Pose
+@onready var _car: Sprite2D = %Car
 @onready var _poses: AnimationPlayer = %Poses
 @onready var _loop: AudioStreamPlayer = %Loop
 @onready var _stinger: AudioStreamPlayer = %Stinger
@@ -108,10 +109,19 @@ func _exit_tree() -> void:
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_apply_player_car()
 	_build_rivals()
 	_build_pose_clips()
 	_poses.animation_finished.connect(_on_pose_finished)
 	_loop.play()
+
+
+## The drafted car's portrait stands in for the player; no championship leaves it blank.
+func _apply_player_car() -> void:
+	var champ := Session.championship
+	var player := champ.player_entry() if champ != null else null
+	var drafted := Session.CATALOG.car(player.car_id) if player != null else null
+	_car.texture = drafted.portrait if drafted != null else null
 
 
 func _process(_delta: float) -> void:

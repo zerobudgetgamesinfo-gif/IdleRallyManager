@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://bn7stageviews"]
 
 [ext_resource type="Script" uid="uid://cm8stageviewg" path="res://scripts/stage/stage_view.gd" id="1_view"]
-[ext_resource type="Texture2D" uid="uid://b5huthbt0qi8e" path="res://scenes/stage/art/rally_car.svg" id="2_car"]
 [ext_resource type="AudioStream" uid="uid://n3cu2okf20wb" path="res://audio/reveal_loop.wav" id="3_loop"]
 [ext_resource type="AudioStream" uid="uid://bj5qomlk1bt1n" path="res://audio/incident_stinger.wav" id="4_stinger"]
 
@@ -62,9 +61,9 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 
 [node name="Car" type="Sprite2D" parent="Player/Pose"]
-position = Vector2(-30, -26.1)
-scale = Vector2(0.5, 0.5)
-texture = ExtResource("2_car")
+unique_name_in_owner = true
+position = Vector2(10, -12)
+scale = Vector2(1.25, 1.25)
 centered = false
 
 [node name="Tag" type="Label" parent="Player/Pose"]
