@@ -14,6 +14,9 @@ const FONT_SIZE_SIDE := 12
 const SETTINGS_CLEARANCE := 104.0
 const SIDE_STAGE_HEIGHT := 96.0
 const SIDE_ROW_PORTRAIT := 22.0
+const TICKER_ROW_HEIGHT := 34.0
+const TICKER_PORTRAIT := 28.0
+const POPOVER_FADE_SEC := 0.2
 
 const INTRO_LINES: PackedStringArray = [
 	"A rally sits on your desktop",
@@ -135,9 +138,21 @@ func _rebuild_now() -> void:
 	host.clip_contents = true
 	host.add_theme_constant_override("separation", 2)
 	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	host.add_child(_build_header())
 	if Session.phase() != Championship.PHASE_IDLE:
 		_intro_shown = false
+	if Dock.is_ticker():
+		_build_ticker(host)
+	else:
+		_build_full(host)
+	_host = host
+	add_child(host)
+	_update_dynamic_labels()
+	_sync_timer()
+	Dock.refresh_hit_polygon()
+
+
+func _build_full(host: VBoxContainer) -> void:
+	host.add_child(_build_header())
 	var body := _build_body()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -148,20 +163,147 @@ func _rebuild_now() -> void:
 	host.add_child(body)
 	if _shows_standings_peek():
 		host.add_child(_build_standings_peek())
-	_host = host
-	add_child(host)
-	_update_dynamic_labels()
-	_sync_timer()
-	Dock.refresh_hit_polygon()
 
 
-func _sync_dock_focus() -> void:
+## Ticker: one slim row at the bottom. Draft, service, recap and finished keep their body behind a chip
+## and show it above the row only while the panel is open.
+func _build_ticker(host: VBoxContainer) -> void:
 	var phase := Session.phase()
-	Dock.set_focus(
+	var open := _is_panel_phase(phase) and Dock.is_panel_open()
+	if open:
+		var body := _build_body()
+		body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		host.add_child(body)
+		_fade_in(host)
+	else:
+		var gap := Control.new()
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		host.add_child(gap)
+	host.add_child(_build_ticker_row(phase, open))
+
+
+func _build_ticker_row(phase: String, open: bool) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "Ticker"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.custom_minimum_size = Vector2(0, TICKER_ROW_HEIGHT)
+	row.add_theme_constant_override("separation", 8)
+	if phase == Championship.PHASE_STAGE_REVEAL:
+		var reveal := _build_reveal()
+		reveal.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(reveal)
+	elif phase == Championship.PHASE_IDLE:
+		_fill_idle_ticker(row)
+	else:
+		var title := _label(_phase_heading())
+		title.theme_type_variation = &"TitleLabel"
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		title.clip_text = true
+		row.add_child(title)
+	if phase == Championship.PHASE_STAGE_REVEAL or phase == Championship.PHASE_SERVICE:
+		_clock_label = _label(_clock_text())
+		_clock_label.name = "Clock"
+		_clock_label.custom_minimum_size = Vector2(72, 0)
+		_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(_clock_label)
+	if _is_panel_phase(phase):
+		row.add_child(_panel_chip(phase, open))
+	var clearance := Control.new()
+	clearance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clearance.custom_minimum_size = Vector2(SETTINGS_CLEARANCE, 0)
+	row.add_child(clearance)
+	return row
+
+
+func _fill_idle_ticker(row: HBoxContainer) -> void:
+	var show_intro := _intro_shown or not Dock.has_seen_intro()
+	if show_intro:
+		_intro_shown = true
+		Dock.mark_intro_seen()
+	var title := _label("  ·  ".join(INTRO_LINES) if show_intro else "Idle Rally Manager")
+	title.name = "Intro" if show_intro else "Title"
+	if not show_intro:
+		title.theme_type_variation = &"TitleLabel"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.clip_text = true
+	row.add_child(title)
+	var start := _button("Start championship")
+	start.custom_minimum_size = Vector2(160, 0)
+	start.accessibility_name = "Start championship"
+	start.accessibility_description = "Opens the draft: pick one driver and one car."
+	start.pressed.connect(_on_start_pressed)
+	row.add_child(start)
+	var roster := HBoxContainer.new()
+	roster.name = "Roster"
+	roster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	roster.add_theme_constant_override("separation", 3)
+	for driver in Session.CATALOG.drivers:
+		if driver == null or driver.portrait == null or driver.unlock_reputation > 0:
+			continue
+		roster.add_child(_portrait_rect(driver.portrait, TICKER_PORTRAIT))
+	row.add_child(roster)
+
+
+func _panel_chip(phase: String, open: bool) -> Button:
+	var chip := _button("Close ▾" if open else _chip_text(phase))
+	chip.name = "PanelChip"
+	chip.custom_minimum_size = Vector2(120, 0)
+	if not open:
+		var accent := Style.raised(Palette.AMBER_DEEP, 8, Palette.AMBER_LIGHT, 3)
+		accent.content_margin_left = 10
+		accent.content_margin_right = 10
+		for state in ["normal", "hover", "pressed", "hover_pressed"]:
+			chip.add_theme_stylebox_override(state, accent)
+	chip.accessibility_name = "Close panel" if open else _chip_text(phase)
+	chip.accessibility_description = "Opens or closes the panel above the ticker."
+	chip.pressed.connect(_on_chip_pressed)
+	return chip
+
+
+func _chip_text(phase: String) -> String:
+	match phase:
+		Championship.PHASE_DRAFT:
+			return "Pick team ▸"
+		Championship.PHASE_SERVICE:
+			return "Service ▸"
+		Championship.PHASE_RECAP:
+			return "Recap ▸"
+	return "Result ▸"
+
+
+func _is_panel_phase(phase: String) -> bool:
+	return (
 		phase == Championship.PHASE_DRAFT
 		or phase == Championship.PHASE_SERVICE
 		or phase == Championship.PHASE_RECAP
 		or phase == Championship.PHASE_FINISHED
+	)
+
+
+func _on_chip_pressed() -> void:
+	Dock.set_panel_open(not Dock.is_panel_open())
+	_queue_rebuild()
+
+
+## One short fade when the panel opens. The tween ends on its own, so idle stays still.
+func _fade_in(node: CanvasItem) -> void:
+	node.modulate.a = 0.0
+	var tween := create_tween()
+	tween.tween_property(node, "modulate:a", 1.0, POPOVER_FADE_SEC)
+
+
+func _sync_dock_focus() -> void:
+	var phase := Session.phase()
+	Dock.set_panel_phase(
+		phase == Championship.PHASE_DRAFT
+		or phase == Championship.PHASE_SERVICE
+		or phase == Championship.PHASE_RECAP
+		or phase == Championship.PHASE_FINISHED,
+		phase == Championship.PHASE_DRAFT
 	)
 
 
@@ -287,7 +429,7 @@ func _idle_roster(wrap: bool) -> Control:
 	row.name = "Roster"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 4)
-	var edge := 36.0 if Dock.get_preset() == Dock.PRESET_COMPACT else 48.0
+	var edge := 48.0 if Dock.get_preset() == Dock.PRESET_COZY else 36.0
 	for driver in Session.CATALOG.drivers:
 		if driver == null or driver.portrait == null or driver.unlock_reputation > 0:
 			continue
@@ -319,7 +461,7 @@ func _build_reveal() -> Control:
 	var layer := Control.new()
 	layer.name = "Reveal"
 	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.custom_minimum_size = Vector2(0, 48)
+	layer.custom_minimum_size = Vector2(0, 28 if Dock.is_ticker() else 48)
 	var view := StageViewScene.instantiate() as StageView
 	view.clock = Callable(self, "now_unix")
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -498,7 +640,7 @@ func _driver_portrait(entry_id: String) -> Texture2D:
 
 
 func _peek_height() -> float:
-	if Dock.get_preset() == Dock.PRESET_COMPACT:
+	if Dock.get_preset() != Dock.PRESET_COZY:
 		return 20.0
 	return 40.0
 

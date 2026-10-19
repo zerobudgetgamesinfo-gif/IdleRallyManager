@@ -9,6 +9,8 @@ const SETTINGS_BUTTON_HEIGHT := 28.0
 const SETTINGS_BUTTON_GAP := 8.0
 const SETTINGS_PANEL_HEIGHT := 88.0
 const SIDE_PAD := 8.0
+const TICKER_HANDLE_HEIGHT := 6.0
+const TICKER_PAD := 6.0
 const GRIP_LONG := 48.0
 const GRIP_SHORT := 4.0
 const TIME_SCALES: Array[int] = [1, 10, 60, 120]
@@ -27,6 +29,7 @@ var _shown_scale := 1.0
 @onready var _settings_row: HFlowContainer = %SettingsRow
 @onready var _compact_button: Button = %Compact
 @onready var _cozy_button: Button = %Cozy
+@onready var _ticker_button: Button = %Ticker
 @onready var _always_on_top: CheckBox = %AlwaysOnTop
 @onready var _mute: CheckBox = %Mute
 @onready var _exclude_capture: CheckBox = %ExcludeCapture
@@ -58,7 +61,6 @@ func _ready() -> void:
 		Dock.edge_changed.connect(_on_edge_changed)
 	apply_mute()
 	_sync_championship_controls()
-	_sync_dock_focus()
 	_apply_layout()
 	Dock.refresh_hit_polygon()
 
@@ -81,12 +83,15 @@ func _bind_chrome() -> void:
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_compact_button.toggled.connect(_on_preset_toggled.bind(Dock.PRESET_COMPACT))
 	_cozy_button.toggled.connect(_on_preset_toggled.bind(Dock.PRESET_COZY))
+	_ticker_button.toggled.connect(_on_preset_toggled.bind(Dock.PRESET_TICKER))
 	_always_on_top.toggled.connect(_on_always_on_top_toggled)
 	_pause_button.pressed.connect(_on_pause_pressed)
 	_abandon_button.pressed.connect(_on_abandon_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
 	if Dock.get_preset() == Dock.PRESET_COMPACT:
 		_compact_button.set_pressed_no_signal(true)
+	elif Dock.get_preset() == Dock.PRESET_TICKER:
+		_ticker_button.set_pressed_no_signal(true)
 	else:
 		_cozy_button.set_pressed_no_signal(true)
 	_always_on_top.set_pressed_no_signal(Dock.is_always_on_top())
@@ -169,10 +174,14 @@ func _apply_layout() -> void:
 
 	_settings_button.offset_left = -(radius + SETTINGS_BUTTON_WIDTH)
 	_settings_button.offset_right = -radius
+	_settings_button.anchor_top = 0.0
+	_settings_button.anchor_bottom = 0.0
 	_settings_button.offset_top = 0.0
 	_settings_button.offset_bottom = SETTINGS_BUTTON_HEIGHT
 
-	if Dock.is_side():
+	if Dock.is_ticker():
+		_apply_ticker_layout(radius)
+	elif Dock.is_side():
 		_apply_side_layout(radius)
 	else:
 		_apply_bottom_layout(radius)
@@ -200,6 +209,37 @@ func _apply_bottom_layout(radius: float) -> void:
 	_hud.offset_top = maxf(HANDLE_HEIGHT, radius)
 	_hud.offset_right = -radius
 	_hud.offset_bottom = -radius
+
+
+## The ticker row is the bottom TICKER_ROW strip of the window. The drag handle is a thin top bar, the
+## settings button sits level with the row, and the settings cluster opens above the row.
+func _apply_ticker_layout(radius: float) -> void:
+	var row := HudStrip.TICKER_ROW_HEIGHT
+	_set_handle_anchors(0.0, 1.0, 0.0, 0.0)
+	_handle.offset_left = radius
+	_handle.offset_top = 0.0
+	_handle.offset_right = -(radius + SETTINGS_BUTTON_WIDTH + SETTINGS_BUTTON_GAP)
+	_handle.offset_bottom = TICKER_HANDLE_HEIGHT
+	_handle.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_set_grip(Vector2(GRIP_LONG, GRIP_SHORT))
+
+	var below := TICKER_PAD + (row - SETTINGS_BUTTON_HEIGHT) * 0.5
+	_settings_button.anchor_top = 1.0
+	_settings_button.anchor_bottom = 1.0
+	_settings_button.offset_bottom = -below
+	_settings_button.offset_top = -(below + SETTINGS_BUTTON_HEIGHT)
+
+	_set_panel_anchors(1.0)
+	_settings_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_settings_panel.offset_left = radius
+	_settings_panel.offset_right = -radius
+	_settings_panel.offset_bottom = -(TICKER_PAD + row + TICKER_PAD)
+	_settings_panel.offset_top = _settings_panel.offset_bottom - SETTINGS_PANEL_HEIGHT
+
+	_hud.offset_left = radius
+	_hud.offset_top = TICKER_HANDLE_HEIGHT
+	_hud.offset_right = -radius
+	_hud.offset_bottom = -TICKER_PAD
 
 
 ## The strip is a column on the left edge, so the drag handle moves to the inner (right) edge.
@@ -300,6 +340,7 @@ func _on_settings_pressed() -> void:
 	_settings_button.accessibility_name = "Close settings" if _settings_panel.visible else "Settings"
 	if not _settings_panel.visible:
 		_reset_abandon_button()
+	Dock.set_settings_open(_settings_panel.visible)
 	_apply_layout()
 	Dock.refresh_hit_polygon()
 
@@ -423,18 +464,7 @@ func _on_skip_pressed() -> void:
 func _on_session_phase_changed() -> void:
 	_reset_abandon_button()
 	_sync_championship_controls()
-	_sync_dock_focus()
 	_apply_layout()
-
-
-func _sync_dock_focus() -> void:
-	var phase := Session.phase()
-	Dock.set_focus(
-		phase == Championship.PHASE_DRAFT
-		or phase == Championship.PHASE_SERVICE
-		or phase == Championship.PHASE_RECAP
-		or phase == Championship.PHASE_FINISHED
-	)
 
 
 func _reset_abandon_button() -> void:

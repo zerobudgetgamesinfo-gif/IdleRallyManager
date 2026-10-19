@@ -23,6 +23,7 @@ func run() -> void:
 	_check_assets()
 	await _check_poses_and_loop()
 	await _check_layout()
+	await _check_ticker()
 	await _check_still_idle_and_service()
 	await _check_reveal_audio_and_sleep()
 	await _check_intro_once()
@@ -68,6 +69,14 @@ func _check_geometry() -> void:
 	var offset_usable := Rect2i(1920, 30, 1600, 900)
 	var left_offset := DockGeometry.window_rect(offset_usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_COZY, false, 1.5)
 	_ok(left_offset == Rect2i(1920, 30, 330, 900), "left on a second screen %s" % left_offset)
+	var ticker := DockGeometry.window_rect(usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_TICKER, false, 1.0)
+	_ok(ticker == Rect2i(0, 976, 1920, 64), "ticker rest rect %s" % ticker)
+	var ticker_open := DockGeometry.window_rect(usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_TICKER, true, 1.0)
+	_ok(ticker_open == Rect2i(0, 700, 1920, 340), "ticker open rect %s" % ticker_open)
+	var left_ticker := DockGeometry.window_rect(usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_TICKER, false, 1.0)
+	_ok(left_ticker == Rect2i(0, 0, 144, 1040), "a left ticker is a compact column %s" % left_ticker)
+	_ok(DockGeometry.is_ticker(DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_TICKER), "bottom ticker")
+	_ok(not DockGeometry.is_ticker(DockGeometry.EDGE_LEFT, DockGeometry.PRESET_TICKER), "left is never a ticker")
 	_ok(DockGeometry.nearest_step(1.3) == 1.25, "snap 1.3")
 	_ok(DockGeometry.nearest_step(9.0) == 2.0, "snap 9")
 	_ok(DockGeometry.nearest_step(0.0) == 1.0, "snap 0")
@@ -208,6 +217,101 @@ func _check_layout() -> void:
 	Dock.set_edge(original_edge)
 	_tree.root.remove_child(viewport)
 	viewport.free()
+
+
+# --- Ticker ----------------------------------------------------------------
+
+func _check_ticker() -> void:
+	_reset_session()
+	var preset := Dock.get_preset()
+	var edge := Dock.get_edge()
+	# The layout check above leaves its settings panel open on the autoload.
+	Dock.set_settings_open(false)
+	Dock.set_panel_phase(false)
+	Dock.set_edge(Dock.EDGE_BOTTOM)
+	Dock.set_preset(Dock.PRESET_TICKER)
+	# The panel stays shut behind the chip until the player opens it.
+	Dock.set_panel_phase(true)
+	_ok(not Dock.is_focus(), "a choice phase auto-expanded the ticker")
+	Dock.set_panel_open(true)
+	_ok(Dock.is_focus(), "opening the panel did not grow the window")
+	Dock.set_panel_phase(false)
+	_ok(not Dock.is_focus() and not Dock.is_panel_open(), "leaving the choice phase left the panel open")
+	Dock.set_settings_open(true)
+	_ok(Dock.is_focus(), "settings did not borrow the open height")
+	Dock.set_settings_open(false)
+	_ok(not Dock.is_focus(), "closing settings kept the ticker open")
+	# Compact and cozy keep their old behavior: a choice phase grows the window at once.
+	Dock.set_preset(Dock.PRESET_COZY)
+	Dock.set_panel_phase(true)
+	_ok(Dock.is_focus(), "cozy no longer grows on a choice phase")
+	Dock.set_edge(Dock.EDGE_LEFT)
+	Dock.set_preset(Dock.PRESET_TICKER)
+	_ok(not Dock.is_ticker(), "a left-edge strip counted as a ticker")
+	_ok(Dock.is_focus(), "a left-edge choice phase did not take focus")
+	Dock.set_panel_phase(false)
+	Dock.set_edge(Dock.EDGE_BOTTOM)
+
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1280, 64)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_tree.root.add_child(viewport)
+	var main := MAIN_SCENE.instantiate() as Control
+	viewport.add_child(main)
+	await _frames()
+	var rest := Rect2(Vector2.ZERO, Vector2(viewport.size))
+	for node_name in ["SettingsButton", "MouseDragHandle"]:
+		var control := main.get_node("%" + node_name) as Control
+		_ok(rest.encloses(control.get_global_rect()), "%s leaves the ticker: %s" % [node_name, control.get_global_rect()])
+	var row := main.find_child("Ticker", true, false) as Control
+	_ok(row != null and rest.encloses(row.get_global_rect()), "the idle ticker row leaves the window")
+	var start := _first_button(main, "Start championship")
+	_ok(start != null and rest.encloses(start.get_global_rect()), "the Start button leaves the ticker")
+	# Settings borrow the open height, so every control must fit the tall window.
+	viewport.size = Vector2i(1280, 340)
+	(main.get_node("%SettingsButton") as Button).pressed.emit()
+	main.get_node("%ExcludeCapture").visible = true
+	main.get_node("%ScaleMatch").visible = true
+	await _frames()
+	var open := Rect2(Vector2.ZERO, Vector2(viewport.size))
+	for node_name in ["QuitButton", "SettingsButton", "Mute", "Ticker", "EdgeLeft", "Scale200", "ExcludeCapture", "ScaleMatch"]:
+		var control := main.get_node("%" + node_name) as Control
+		_ok(open.encloses(control.get_global_rect()), "%s leaves the open ticker: %s" % [node_name, control.get_global_rect()])
+	var panel := main.get_node("%SettingsPanel") as Control
+	_ok(panel.get_combined_minimum_size().y <= panel.size.y + 1.0, "ticker settings overflow their panel")
+	_ok(not panel.get_global_rect().intersects(row.get_global_rect()) if is_instance_valid(row) else true, "settings cover the ticker row")
+	(main.get_node("%SettingsButton") as Button).pressed.emit()
+	# A draft waits behind the chip; the chip opens it, and a second press shuts it.
+	Session.start_draft()
+	await _frames(3)
+	var chip := main.find_child("PanelChip", true, false) as Button
+	_ok(chip != null, "the ticker shows no chip while a draft is pending")
+	# The very first draft opens once as a hint, so shut it first when it is already open.
+	if Dock.is_panel_open():
+		chip.pressed.emit()
+		await _frames(3)
+	_ok(not Dock.is_focus() and main.find_child("DraftView", true, false) == null, "the draft opened by itself")
+	(main.find_child("PanelChip", true, false) as Button).pressed.emit()
+	await _frames(3)
+	_ok(Dock.is_focus() and main.find_child("DraftView", true, false) != null, "the chip did not open the draft")
+	(main.find_child("PanelChip", true, false) as Button).pressed.emit()
+	await _frames(3)
+	_ok(not Dock.is_focus() and main.find_child("DraftView", true, false) == null, "the chip did not close the draft")
+	_reset_session()
+	await _frames(2)
+	_tree.root.remove_child(viewport)
+	viewport.free()
+	Dock.set_settings_open(false)
+	Dock.set_panel_phase(false)
+	Dock.set_preset(preset)
+	Dock.set_edge(edge)
+
+
+func _first_button(root: Node, text: String) -> Button:
+	for node in root.find_children("*", "Button", true, false):
+		if (node as Button).text == text:
+			return node as Button
+	return null
 
 
 # --- Still picture ---------------------------------------------------------

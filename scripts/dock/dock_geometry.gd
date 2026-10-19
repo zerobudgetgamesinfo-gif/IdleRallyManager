@@ -2,7 +2,7 @@ class_name DockGeometry
 extends RefCounted
 ## Pure window geometry for the strip. No DisplayServer reads, so a headless check can run it.
 ##
-## Bottom edge: full usable width, height from the preset (or the focus height).
+## Bottom edge: full usable width, height from the preset (or the focus height, which is the ticker's open panel).
 ## Left edge: full usable height, width is the preset's long side (144 or 220). Focus height does not apply.
 ## Every pixel size is the design size times the content scale.
 
@@ -11,18 +11,33 @@ const EDGE_LEFT := "left"
 
 const PRESET_COMPACT := "compact"
 const PRESET_COZY := "cozy"
+const PRESET_TICKER := "ticker"
 const SIZE_COMPACT := 144
 const SIZE_COZY := 220
+const SIZE_TICKER := 64
 const SIZE_FOCUS := 340
 
 const SCALE_MATCH := "match"
 const SCALE_STEPS: Array[float] = [1.0, 1.25, 1.5, 2.0]
 
 
+## Side length used on the left edge. A ticker is a bottom-edge bar only, so a left column treats it as compact.
 static func preset_size(preset: String) -> int:
-	if preset == PRESET_COMPACT:
+	if preset == PRESET_COMPACT or preset == PRESET_TICKER:
 		return SIZE_COMPACT
 	return SIZE_COZY
+
+
+## Resting bar height on the bottom edge.
+static func bar_height(preset: String) -> int:
+	if preset == PRESET_TICKER:
+		return SIZE_TICKER
+	return preset_size(preset)
+
+
+## True when the preset is a slim bar that opens a panel above itself (bottom edge only).
+static func is_ticker(edge: String, preset: String) -> bool:
+	return edge == EDGE_BOTTOM and preset == PRESET_TICKER
 
 
 ## The strip's rectangle in desktop pixels.
@@ -31,7 +46,7 @@ static func window_rect(usable: Rect2i, edge: String, preset: String, focus: boo
 	if edge == EDGE_LEFT:
 		var width := mini(maxi(1, roundi(float(preset_size(preset)) * factor)), maxi(usable.size.x, 1))
 		return Rect2i(usable.position, Vector2i(width, maxi(usable.size.y, 1)))
-	var base := SIZE_FOCUS if focus else preset_size(preset)
+	var base := SIZE_FOCUS if focus else bar_height(preset)
 	var height := mini(maxi(1, roundi(float(base) * factor)), maxi(usable.size.y, 1))
 	return Rect2i(
 		Vector2i(usable.position.x, usable.position.y + usable.size.y - height),

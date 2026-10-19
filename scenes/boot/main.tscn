@@ -145,6 +145,15 @@ toggle_mode = true
 button_group = SubResource("ButtonGroup_height")
 text = "Cozy"
 
+[node name="Ticker" type="Button" parent="Strip/SettingsPanel/SettingsRow" unique_id=1486449077]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_height")
+text = "Ticker"
+
 [node name="AlwaysOnTop" type="CheckBox" parent="Strip/SettingsPanel/SettingsRow" unique_id=2092466887]
 unique_name_in_owner = true
 layout_mode = 2

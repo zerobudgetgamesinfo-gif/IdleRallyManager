@@ -2,9 +2,9 @@ extends Node
 ## Window flags, edge placement, hit polygon, and user://window.cfg.
 ##
 ## Section "window" stores screen (int, -1 until a screen is chosen), preset
-## ("compact" or "cozy"), always_on_top (bool), edge ("bottom" or "left"),
+## ("compact", "cozy" or "ticker"), always_on_top (bool), edge ("bottom" or "left"),
 ## scale ("1.0", "1.25", "1.5", "2.0", or "match"), exclude_from_capture (bool),
-## and seen_intro (bool, the first-launch copy). The file stores the preset name,
+## seen_intro (bool, the first-launch copy), and seen_panel_hint (bool, the one-time auto-open of the ticker panel). The file stores the preset name,
 ## never a pixel size. Geometry comes from DockGeometry: on the bottom edge the
 ## height is the preset times the content scale, or the focus height while a
 ## choice phase is open; on the left edge the width is the preset's long side
@@ -32,6 +32,7 @@ const SECTION := "window"
 
 const PRESET_COMPACT := DockGeometry.PRESET_COMPACT
 const PRESET_COZY := DockGeometry.PRESET_COZY
+const PRESET_TICKER := DockGeometry.PRESET_TICKER
 const HEIGHT_COMPACT := DockGeometry.SIZE_COMPACT
 const HEIGHT_COZY := DockGeometry.SIZE_COZY
 const HEIGHT_FOCUS := DockGeometry.SIZE_FOCUS
@@ -54,6 +55,10 @@ var _scale_match := false
 var _exclude_from_capture := false
 var _seen_intro := false
 var _focus := false
+var _panel_phase := false
+var _panel_open := false
+var _settings_open := false
+var _seen_panel_hint := false
 var _always_on_top := true
 var _overlay_active := false
 var _dragging := false
@@ -122,11 +127,12 @@ func get_preset() -> String:
 
 
 func set_preset(preset: String) -> void:
-	if preset != PRESET_COMPACT and preset != PRESET_COZY:
+	if preset != PRESET_COMPACT and preset != PRESET_COZY and preset != PRESET_TICKER:
 		return
 	if preset == _preset:
 		return
 	_preset = preset
+	_sync_focus()
 	_reapply_placement()
 	_save_config()
 
@@ -146,6 +152,7 @@ func set_edge(edge: String) -> void:
 	if edge == _edge:
 		return
 	_edge = edge
+	_sync_focus()
 	_reapply_placement()
 	_save_config()
 	edge_changed.emit()
@@ -214,11 +221,54 @@ func is_focus() -> bool:
 	return _focus
 
 
-## Transient taller strip for draft, service, recap, and finished. Not saved.
-func set_focus(enabled: bool) -> void:
-	if enabled == _focus:
+## True for the slim bar that opens a panel on demand.
+func is_ticker() -> bool:
+	return DockGeometry.is_ticker(_edge, _preset)
+
+
+func is_panel_open() -> bool:
+	return _panel_open
+
+
+## The phase needs a choice or a read (draft, service, recap, finished). Called by the HUD on every
+## phase change. Compact and cozy grow to the focus height at once; the ticker stays slim behind a
+## chip until the player opens the panel. The first draft ever opens it once as a hint.
+func set_panel_phase(needed: bool, first_hint := false) -> void:
+	var changed := needed != _panel_phase
+	_panel_phase = needed
+	if changed:
+		_panel_open = false
+	if needed and first_hint and not _seen_panel_hint and is_ticker():
+		_seen_panel_hint = true
+		_panel_open = true
+		_save_config()
+	_sync_focus()
+
+
+## The ticker's open/closed toggle. Ignored when the strip is not a ticker.
+func set_panel_open(open: bool) -> void:
+	if open == _panel_open:
 		return
-	_focus = enabled
+	_panel_open = open
+	_sync_focus()
+
+
+## The settings cluster is taller than the ticker, so it borrows the open panel.
+func set_settings_open(open: bool) -> void:
+	if open == _settings_open:
+		return
+	_settings_open = open
+	_sync_focus()
+
+
+## Transient taller strip. Not saved. Driven only by the phase, the panel toggle and settings.
+func _sync_focus() -> void:
+	var wanted := _panel_phase and (not is_ticker() or _panel_open)
+	if is_ticker() and _settings_open:
+		wanted = true
+	if wanted == _focus:
+		return
+	_focus = wanted
 	_reapply_placement()
 
 
@@ -445,7 +495,7 @@ func _load_config() -> void:
 	if screen is int or screen is float:
 		_screen = int(screen)
 	var preset := str(config.get_value(SECTION, "preset", PRESET_COZY))
-	if preset == PRESET_COMPACT or preset == PRESET_COZY:
+	if preset == PRESET_COMPACT or preset == PRESET_COZY or preset == PRESET_TICKER:
 		_preset = preset
 	var always: Variant = config.get_value(SECTION, "always_on_top", true)
 	if always is bool:
@@ -464,6 +514,9 @@ func _load_config() -> void:
 	var intro: Variant = config.get_value(SECTION, "seen_intro", false)
 	if intro is bool:
 		_seen_intro = intro
+	var hint: Variant = config.get_value(SECTION, "seen_panel_hint", false)
+	if hint is bool:
+		_seen_panel_hint = hint
 
 
 func _save_config() -> void:
@@ -479,6 +532,7 @@ func _save_config() -> void:
 	config.set_value(SECTION, "scale", get_scale_choice())
 	config.set_value(SECTION, "exclude_from_capture", _exclude_from_capture)
 	config.set_value(SECTION, "seen_intro", _seen_intro)
+	config.set_value(SECTION, "seen_panel_hint", _seen_panel_hint)
 	var err := config.save(CONFIG_PATH)
 	if err != OK:
 		push_error("Dock failed to save window.cfg: %s" % error_string(err))
