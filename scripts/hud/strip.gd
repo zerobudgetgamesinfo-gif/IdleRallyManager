@@ -8,7 +8,7 @@ const DraftViewScene = preload("res://scenes/draft/draft_view.tscn")
 const ServiceViewScene = preload("res://scenes/service/service_view.tscn")
 const StageViewScene = preload("res://scenes/stage/stage_view.tscn")
 
-const TEXT_COLOR := Color(0.973, 0.941, 0.878, 1.0)
+const TEXT_COLOR := Palette.CREAM
 const FONT_SIZE := 14
 const FONT_SIZE_SIDE := 12
 const SETTINGS_CLEARANCE := 104.0
@@ -256,7 +256,8 @@ func _build_idle() -> Control:
 		text.add_child(intro)
 	else:
 		var title := _label("Idle Rally Manager")
-		title.add_theme_font_size_override("font_size", 18)
+		title.theme_type_variation = &"TitleLabel"
+		title.add_theme_font_size_override("font_size", 20)
 		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text.add_child(title)
 	if Session.load_error != "":
@@ -386,7 +387,8 @@ func _build_finished() -> Control:
 	var winner := _winner_line()
 	if winner != "":
 		var banner := _label(winner)
-		banner.add_theme_font_size_override("font_size", 16)
+		banner.theme_type_variation = &"TitleLabel"
+		banner.add_theme_font_size_override("font_size", 18)
 		box.add_child(banner)
 	var scroll := _scroll()
 	var list := VBoxContainer.new()
@@ -396,7 +398,7 @@ func _build_finished() -> Control:
 		for row in champ.standings():
 			list.add_child(_finished_row(row))
 		var banked := _label("Dismiss banks %d reputation" % _player_points())
-		banked.add_theme_color_override("font_color", Color(0.973, 0.941, 0.878, 0.72))
+		banked.add_theme_color_override("font_color", Palette.CREAM_MUTED)
 		list.add_child(banked)
 	scroll.add_child(list)
 	box.add_child(scroll)

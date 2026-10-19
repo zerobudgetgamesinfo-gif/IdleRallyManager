@@ -34,7 +34,7 @@ res://
   sim/                        # RefCounted rules, no Node subclass
   data/                       # .tres catalogs
   audio/                      # reveal loop and incident stinger; bus layout is res://default_bus_layout.tres
-  ui/                         # Theme and controls reused across phases
+  ui/                         # Theme (app_theme.gd), Palette, Style helpers, fonts; reused across phases
   addons/                     # third-party code only
 docs/                         # design and plans; .gdignore so Godot does not import them
 ```

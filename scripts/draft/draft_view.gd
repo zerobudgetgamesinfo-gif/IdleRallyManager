@@ -4,14 +4,12 @@ extends Control
 ## On the left-edge column `vertical` is set before add_child and the columns stack.
 ## A selected row carries a check mark, so selection is never color alone.
 
-const TEXT_COLOR := Color(0.973, 0.941, 0.878, 1.0)
-const MUTED_COLOR := Color(0.973, 0.941, 0.878, 0.72)
+const TEXT_COLOR := Palette.CREAM
+const MUTED_COLOR := Palette.CREAM_MUTED
 const FONT_SIZE := 14
 const FONT_SIZE_VERTICAL := 12
 const ROW_HEIGHT := 30.0
 const ICON_EDGE := 24
-const SELECTED_BG := Color(0.42, 0.48, 0.34, 1.0)
-const ROW_BG := Color(0.22, 0.20, 0.17, 0.85)
 
 var clock: Callable = Callable()
 ## Stack the driver and car lists instead of placing them side by side.
@@ -189,16 +187,16 @@ func _locked_row(title: String, threshold: int) -> Label:
 
 
 func _style_row(button: Button, selected: bool) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = SELECTED_BG if selected else ROW_BG
-	style.set_corner_radius_all(4)
-	style.content_margin_left = 8
-	style.content_margin_right = 8
+	var style := Style.card(selected)
 	style.content_margin_top = 4
 	style.content_margin_bottom = 4
+	var hover := Style.card(selected, true)
+	hover.content_margin_top = 4
+	hover.content_margin_bottom = 4
 	button.add_theme_stylebox_override("normal", style)
-	button.add_theme_stylebox_override("hover", style)
+	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", style)
+	button.add_theme_stylebox_override("hover_pressed", hover)
 	button.add_theme_stylebox_override("focus", style)
 	button.add_theme_color_override("font_color", TEXT_COLOR)
 	button.add_theme_color_override("font_hover_color", TEXT_COLOR)

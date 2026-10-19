@@ -46,6 +46,8 @@ var _shown_scale := 1.0
 
 
 func _ready() -> void:
+	theme = AppTheme.build()
+	_add_sheen()
 	_strip_style = _strip.get_theme_stylebox("panel") as StyleBoxFlat
 	_bind_chrome()
 	if not get_window().size_changed.is_connected(_on_window_size_changed):
@@ -59,6 +61,19 @@ func _ready() -> void:
 	_sync_dock_focus()
 	_apply_layout()
 	Dock.refresh_hit_polygon()
+
+
+## A static vertical gradient over the strip's flat fill, under the phase content.
+func _add_sheen() -> void:
+	var sheen := TextureRect.new()
+	sheen.name = "Sheen"
+	sheen.texture = Style.sheen()
+	sheen.stretch_mode = TextureRect.STRETCH_SCALE
+	sheen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sheen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sheen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_strip.add_child(sheen)
+	_strip.move_child(sheen, 0)
 
 
 func _bind_chrome() -> void:

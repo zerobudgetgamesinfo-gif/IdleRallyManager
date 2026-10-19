@@ -6,11 +6,8 @@ extends Control
 ## set before add_child and the cards stack.
 
 const PARK_TEXTURE: Texture2D = preload("res://scenes/service/art/park.svg")
-const TEXT_COLOR := Color(0.973, 0.941, 0.878, 1.0)
-const MUTED_COLOR := Color(0.973, 0.941, 0.878, 0.72)
-const HINT_BACKDROP := Color(0.176, 0.149, 0.118, 0.78)
-const CARD_BG := Color(0.22, 0.20, 0.17, 0.92)
-const CARD_SELECTED := Color(0.42, 0.48, 0.34, 1.0)
+const TEXT_COLOR := Palette.CREAM
+const MUTED_COLOR := Palette.CREAM_MUTED
 const ICON_COLORS := {
 	"pace": Color(0.72, 0.42, 0.28, 1.0),
 	"grip": Color(0.38, 0.58, 0.42, 1.0),
@@ -69,14 +66,7 @@ func _build() -> void:
 	var backdrop := PanelContainer.new()
 	backdrop.name = "HintBackdrop"
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var backdrop_style := StyleBoxFlat.new()
-	backdrop_style.bg_color = HINT_BACKDROP
-	backdrop_style.set_corner_radius_all(4)
-	backdrop_style.content_margin_left = 8
-	backdrop_style.content_margin_right = 8
-	backdrop_style.content_margin_top = 2
-	backdrop_style.content_margin_bottom = 2
-	backdrop.add_theme_stylebox_override("panel", backdrop_style)
+	backdrop.add_theme_stylebox_override("panel", Style.backdrop())
 	_root.add_child(backdrop)
 
 	_hint = _make_label(_next_hint_text(), TEXT_COLOR)
@@ -192,14 +182,7 @@ func _on_card_gui_input(event: InputEvent, card_id: String) -> void:
 
 
 func _style_card(panel: PanelContainer, selected: bool) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = CARD_SELECTED if selected else CARD_BG
-	style.set_corner_radius_all(6)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
-	panel.add_theme_stylebox_override("panel", style)
+	panel.add_theme_stylebox_override("panel", Style.card(selected))
 
 
 func _set_card_text(panel: PanelContainer, card: CardDef) -> void:
