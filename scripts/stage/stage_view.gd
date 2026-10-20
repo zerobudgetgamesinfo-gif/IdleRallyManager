@@ -19,8 +19,17 @@ const FORE_SPEED := 420.0
 const FORE_HEIGHT := 20.0
 const FORE_MIN_VIEW := 72.0
 const GAP_PX_PER_SEC := 1.5
-const PLAYER_X_START := 0.24
-const PLAYER_X_END := 0.40
+## Car art is 96x64 with the wheel bottoms on CAR_GROUND_Y.
+const CAR_ART_SIZE := Vector2(96, 64)
+const CAR_GROUND_Y := 55.0
+const CAR_HEIGHT_RATIO := 0.5
+const CAR_MIN_SCALE := 0.4
+const CAR_MAX_SCALE := 0.9
+## How far the wheels sink below the road line, so the car sits on the lane.
+const CAR_ROAD_DROP := 3.0
+const ROAD_MARGIN := 6.0
+const SHADOW_WIDTH := 72.0
+const TAG_GAP := 2.0
 const POSE_SEC := 2.4
 const RIVAL_LIMIT := 7
 const RIVAL_SIZE := Vector2(26, 14)
@@ -85,6 +94,7 @@ var _pose_active := false
 var _pose_paused := false
 var _loop_paused := false
 var _rivals_sprites: Array[Sprite2D] = []
+var _shadow: Sprite2D
 
 @onready var _sky: TextureRect = %Sky
 @onready var _hills: TextureRect = %Hills
@@ -96,6 +106,7 @@ var _rivals_sprites: Array[Sprite2D] = []
 @onready var _player: Node2D = %Player
 @onready var _pose: Node2D = %Pose
 @onready var _car: Sprite2D = %Car
+@onready var _tag: Label = %Tag
 @onready var _poses: AnimationPlayer = %Poses
 @onready var _loop: AudioStreamPlayer = %Loop
 @onready var _stinger: AudioStreamPlayer = %Stinger
@@ -127,22 +138,26 @@ func _ready() -> void:
 
 ## A soft ellipse under the car. It stays on the road when the pose hops.
 func _add_shadow() -> void:
-	var shadow := Sprite2D.new()
-	shadow.name = "Shadow"
-	shadow.texture = SHADOW_TEXTURE
-	shadow.centered = false
-	shadow.position = Vector2(0.0, -6.0)
-	shadow.scale = Vector2(1.7, 1.0)
-	_player.add_child(shadow)
-	_player.move_child(shadow, 0)
+	_shadow = Sprite2D.new()
+	_shadow.name = "Shadow"
+	_shadow.texture = SHADOW_TEXTURE
+	_shadow.centered = false
+	_player.add_child(_shadow)
+	_player.move_child(_shadow, 0)
 
 
-## The drafted car's portrait stands in for the player; no championship leaves it blank.
+## The drafted car's road sprite stands in for the player, or its portrait when it has none.
+## No championship leaves it blank.
 func _apply_player_car() -> void:
 	var champ := Session.championship
 	var player := champ.player_entry() if champ != null else null
 	var drafted := Session.CATALOG.car(player.car_id) if player != null else null
-	_car.texture = drafted.portrait if drafted != null else null
+	if drafted == null:
+		_car.texture = null
+	elif drafted.stage_sprite != null:
+		_car.texture = drafted.stage_sprite
+	else:
+		_car.texture = drafted.portrait
 
 
 func _process(_delta: float) -> void:
@@ -319,10 +334,36 @@ func _draw_frame(f: float, view_size: Vector2, show_rivals: bool) -> void:
 	# The foreground sits in front of the car at the bottom edge, only where the view is tall enough.
 	_fore.visible = view_size.y >= FORE_MIN_VIEW
 	_place_layer(_fore, -f * FORE_SPEED, view_size.y - FORE_HEIGHT, view_size.x + FORE_SPEED, FORE_HEIGHT)
-	var player_x := lerpf(view_size.x * PLAYER_X_START, view_size.x * PLAYER_X_END, f)
-	player_x = clampf(player_x, 36.0, maxf(36.0, view_size.x - 72.0))
+	var car_scale := car_scale_for(view_size.y)
+	var car_w := CAR_ART_SIZE.x * car_scale
+	var player_x := car_x(f, view_size.x, car_w)
 	_player.position = Vector2(player_x, road_y)
-	_place_rivals(f, player_x, road_y, show_rivals)
+	_place_car(car_scale, road_y)
+	_place_rivals(f, player_x + car_w * 0.5, road_y, show_rivals)
+
+
+## The car fills about half the view height, within the min and max scale.
+static func car_scale_for(view_height: float) -> float:
+	return clampf(view_height * CAR_HEIGHT_RATIO / CAR_ART_SIZE.y, CAR_MIN_SCALE, CAR_MAX_SCALE)
+
+
+## Left edge of the car: the left end of the road at f 0, its nose at the right end at f 1.
+static func car_x(f: float, view_width: float, car_width: float) -> float:
+	var last := maxf(ROAD_MARGIN, view_width - ROAD_MARGIN - car_width)
+	return lerpf(ROAD_MARGIN, last, clampf(f, 0.0, 1.0))
+
+
+## Wheels on the road, shadow under them, tag over the roof but inside the view.
+func _place_car(car_scale: float, road_y: float) -> void:
+	var car_w := CAR_ART_SIZE.x * car_scale
+	_car.scale = Vector2.ONE * car_scale
+	_car.position = Vector2(0.0, CAR_ROAD_DROP - CAR_GROUND_Y * car_scale)
+	_shadow.scale = Vector2(car_w / SHADOW_WIDTH, car_scale)
+	_shadow.position = Vector2(0.0, CAR_ROAD_DROP - SHADOW_TEXTURE.get_height() * car_scale * 0.5)
+	var tag_size := _tag.size
+	var tag_y := _car.position.y - tag_size.y - TAG_GAP
+	tag_y = maxf(tag_y, -road_y)
+	_tag.position = Vector2((car_w - tag_size.x) * 0.5, tag_y)
 
 
 func _place_layer(layer: TextureRect, x: float, y: float, width: float, height: float) -> void:

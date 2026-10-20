@@ -62,21 +62,19 @@ unique_name_in_owner = true
 
 [node name="Car" type="Sprite2D" parent="Player/Pose"]
 unique_name_in_owner = true
-position = Vector2(10, -12)
-scale = Vector2(1.25, 1.25)
 centered = false
 
 [node name="Tag" type="Label" parent="Player/Pose"]
-offset_left = 32.0
-offset_top = -16.0
-offset_right = 68.0
-offset_bottom = -2.0
+unique_name_in_owner = true
+offset_right = 36.0
+offset_bottom = 14.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.973, 0.941, 0.878, 1)
 theme_override_colors/font_outline_color = Color(0.12, 0.09, 0.07, 0.9)
 theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 12
 text = "You"
+horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Fore" type="TextureRect" parent="."]

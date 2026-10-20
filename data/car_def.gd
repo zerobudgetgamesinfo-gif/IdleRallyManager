@@ -14,6 +14,8 @@ extends Resource
 @export var focus: int = 0
 ## Side-view card for the draft and the standings. Presentation only.
 @export var portrait: Texture2D
+## Side view on the road during the reveal, with no card. Presentation only.
+@export var stage_sprite: Texture2D
 
 
 func stat(stat_name: String) -> int:

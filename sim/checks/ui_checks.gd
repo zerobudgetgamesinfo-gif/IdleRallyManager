@@ -127,6 +127,12 @@ func _check_assets() -> void:
 		_ok(driver.portrait != null, "driver %s has no portrait" % driver.id)
 	for car in CATALOG.cars:
 		_ok(car.portrait != null, "car %s has no portrait" % car.id)
+		_ok(car.stage_sprite != null, "car %s has no stage sprite" % car.id)
+	_ok(is_equal_approx(StageView.car_x(0.0, 800.0, 80.0), StageView.ROAD_MARGIN), "the car does not start at the left end")
+	_ok(
+		is_equal_approx(StageView.car_x(1.0, 800.0, 80.0), 800.0 - StageView.ROAD_MARGIN - 80.0),
+		"the car does not finish at the right end"
+	)
 	for stage in CATALOG.stages_in_order():
 		_ok(StageView.SURFACE_TEXTURES.has(stage.surface), "no art for the %s surface of %s" % [stage.surface, stage.id])
 	for surface in StageView.SURFACE_TEXTURES:
