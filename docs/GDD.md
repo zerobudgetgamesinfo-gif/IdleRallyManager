@@ -310,6 +310,8 @@ A single cluster opens inside the expanded strip, or in the collapsed tile's cor
 
 Art direction: illustrated animals, soft shapes, a limited palette per surface (dusty yellow gravel, blue-grey tarmac, pale snow). The strip is a side view. The car travels left to right. Parallax layers move at fractions of `f`. Incidents play a short pose (slide, hop, wobble) at the authored `t_norm` and then return to the cruise pose.
 
+Cars use faceted rally liveries; wheel spin and surface-tinted dust are driven by reveal fraction `f`.
+
 The car is not a physics body. A `Node2D` position is set from the reveal fraction and the interpolated gap. Rival cars can be ticks or small silhouettes on the same road. v1 presentation may show the player car plus a position number if the full field of sprites is too busy at 144 px.
 
 Animation must respect low-processor mode. A stage reveal caps redraw at about 30 fps. Service and idle, once the pulse or a short celebration has finished, should sit still so the engine can sleep. Do not use a shader `TIME` uniform on a visible material; it forces a redraw every frame. See the performance notes in [Creating applications](https://docs.godotengine.org/en/4.7/tutorials/ui/creating_applications.html).

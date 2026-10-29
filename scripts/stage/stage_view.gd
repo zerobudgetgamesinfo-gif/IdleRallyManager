@@ -31,6 +31,15 @@ const ROAD_MARGIN := 6.0
 const SHADOW_WIDTH := 72.0
 const TAG_GAP := 2.0
 const POSE_SEC := 2.4
+const WHEEL_ART_RADIUS := 8.0
+const WHEEL_TURNS := 600.0
+const DUST_PUFFS := 4
+const DUST_RATE := 900.0
+const DUST_TINTS := {
+	"gravel": Color(0.82, 0.69, 0.43),
+	"tarmac": Color(0.72, 0.76, 0.78, 0.55),
+	"snow": Color(0.86, 0.94, 1.0),
+}
 const RIVAL_LIMIT := 7
 const RIVAL_SIZE := Vector2(26, 14)
 const HILLS_HEIGHT := 40.0
@@ -44,7 +53,10 @@ const POSE_HOP := &"hop"
 const POSE_WOBBLE := &"wobble"
 
 const RIVAL_TEXTURE: Texture2D = preload("res://scenes/stage/art/car_rival.svg")
+const RIVAL_BAND_TEXTURE: Texture2D = preload("res://scenes/stage/art/rival_band.svg")
 const SHADOW_TEXTURE: Texture2D = preload("res://scenes/stage/art/car_shadow.svg")
+const WHEEL_TEXTURE: Texture2D = preload("res://scenes/stage/art/wheel.svg")
+const DUST_TEXTURE: Texture2D = preload("res://scenes/stage/art/dust_puff.svg")
 const SURFACE_TEXTURES := {
 	"gravel": {
 		"sky": preload("res://scenes/stage/art/sky_gravel.svg"),
@@ -94,6 +106,10 @@ var _pose_active := false
 var _pose_paused := false
 var _loop_paused := false
 var _rivals_sprites: Array[Sprite2D] = []
+var _wheel_sprites: Array[Sprite2D] = []
+var _dust_sprites: Array[Sprite2D] = []
+var _dust_tint := Color.WHITE
+var _rear_trail_anchor := Vector2(14.0, CAR_GROUND_Y)
 var _shadow: Sprite2D
 
 @onready var _sky: TextureRect = %Sky
@@ -130,6 +146,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_apply_player_car()
 	_add_shadow()
+	_add_dust_puffs()
 	_build_rivals()
 	_build_pose_clips()
 	_poses.animation_finished.connect(_on_pose_finished)
@@ -146,18 +163,45 @@ func _add_shadow() -> void:
 	_player.move_child(_shadow, 0)
 
 
+func _add_dust_puffs() -> void:
+	for index in DUST_PUFFS:
+		var puff := Sprite2D.new()
+		puff.name = "Dust%d" % index
+		puff.texture = DUST_TEXTURE
+		puff.centered = true
+		puff.visible = false
+		_player.add_child(puff)
+		_player.move_child(puff, index + 1)
+		_dust_sprites.append(puff)
+
+
 ## The drafted car's road sprite stands in for the player, or its portrait when it has none.
 ## No championship leaves it blank.
 func _apply_player_car() -> void:
 	var champ := Session.championship
 	var player := champ.player_entry() if champ != null else null
 	var drafted := Session.CATALOG.car(player.car_id) if player != null else null
+	_wheel_sprites.clear()
+	_rear_trail_anchor = Vector2(14.0, CAR_GROUND_Y)
 	if drafted == null:
 		_car.texture = null
-	elif drafted.stage_sprite != null:
-		_car.texture = drafted.stage_sprite
 	else:
-		_car.texture = drafted.portrait
+		_car.texture = drafted.stage_sprite if drafted.stage_sprite != null else drafted.portrait
+		for center in drafted.wheel_centers:
+			var wheel := Sprite2D.new()
+			wheel.name = "Wheel%d" % _wheel_sprites.size()
+			wheel.texture = WHEEL_TEXTURE
+			wheel.centered = true
+			wheel.position = center
+			wheel.scale = Vector2.ONE * drafted.wheel_radius / WHEEL_ART_RADIUS
+			_car.add_child(wheel)
+			_wheel_sprites.append(wheel)
+		if not drafted.wheel_centers.is_empty():
+			var rear_wheel := drafted.wheel_centers[0]
+			_rear_trail_anchor = Vector2(
+				rear_wheel.x - drafted.wheel_radius,
+				rear_wheel.y + drafted.wheel_radius
+			)
 
 
 func _process(_delta: float) -> void:
@@ -339,6 +383,19 @@ func _draw_frame(f: float, view_size: Vector2, show_rivals: bool) -> void:
 	var player_x := car_x(f, view_size.x, car_w)
 	_player.position = Vector2(player_x, road_y)
 	_place_car(car_scale, road_y)
+	var angle := wheel_angle(f)
+	for wheel in _wheel_sprites:
+		wheel.rotation = angle
+	for index in _dust_sprites.size():
+		var puff_data := dust_puff(f, index)
+		var offset: Vector2 = puff_data["offset"]
+		var puff_scale := float(puff_data["scale"])
+		var alpha := float(puff_data["alpha"])
+		var puff := _dust_sprites[index]
+		puff.position = Vector2(_rear_trail_anchor.x * car_scale, CAR_ROAD_DROP) + offset * car_scale
+		puff.scale = Vector2.ONE * car_scale * puff_scale
+		puff.modulate = Color(_dust_tint.r, _dust_tint.g, _dust_tint.b, _dust_tint.a * alpha)
+		puff.visible = f < 1.0
 	_place_rivals(f, player_x + car_w * 0.5, road_y, show_rivals)
 
 
@@ -351,6 +408,19 @@ static func car_scale_for(view_height: float) -> float:
 static func car_x(f: float, view_width: float, car_width: float) -> float:
 	var last := maxf(ROAD_MARGIN, view_width - ROAD_MARGIN - car_width)
 	return lerpf(ROAD_MARGIN, last, clampf(f, 0.0, 1.0))
+
+
+static func wheel_angle(f: float) -> float:
+	return fposmod(f * WHEEL_TURNS * TAU, TAU)
+
+
+static func dust_puff(f: float, index: int) -> Dictionary:
+	var phase := fposmod(f * DUST_RATE + float(index) / DUST_PUFFS, 1.0)
+	return {
+		"offset": Vector2(-phase * 32.0, -phase * 10.0),
+		"scale": lerpf(0.45, 1.25, phase),
+		"alpha": 1.0 - phase,
+	}
 
 
 ## Wheels on the road, shadow under them, tag over the roof but inside the view.
@@ -382,12 +452,17 @@ func _place_rivals(f: float, player_x: float, road_y: float, show_rivals: bool) 
 			player_time = float(row.get("time", 0.0))
 			break
 	var rival_index := 0
+	var champ := Session.championship
 	for row in ranked:
-		if str(row.get("entry_id", "")) == Championship.PLAYER_ID:
+		var entry_id := str(row.get("entry_id", ""))
+		if entry_id == Championship.PLAYER_ID:
 			continue
 		if rival_index >= _rivals_sprites.size():
 			break
 		var marker := _rivals_sprites[rival_index]
+		var entry := champ.find_entry(entry_id) if champ != null else null
+		var rival_car := Session.CATALOG.car(entry.car_id) if entry != null else null
+		marker.texture = rival_car.rival_sprite if rival_car != null and rival_car.rival_sprite != null else RIVAL_TEXTURE
 		rival_index += 1
 		var dx := (player_time - float(row.get("time", 0.0))) * GAP_PX_PER_SEC
 		marker.visible = true
@@ -401,8 +476,13 @@ func _build_rivals() -> void:
 		var marker := Sprite2D.new()
 		marker.texture = RIVAL_TEXTURE
 		marker.centered = false
-		marker.modulate = RIVAL_COLORS[index]
 		marker.visible = false
+		var band := Sprite2D.new()
+		band.name = "RivalBand"
+		band.texture = RIVAL_BAND_TEXTURE
+		band.centered = false
+		band.modulate = RIVAL_COLORS[index]
+		marker.add_child(band)
 		_rivals.add_child(marker)
 		_rivals_sprites.append(marker)
 
@@ -419,6 +499,9 @@ func _apply_surface() -> void:
 	_ground.texture = textures["ground"]
 	_road.texture = textures["road"]
 	_fore.texture = textures["fore"]
+	_dust_tint = DUST_TINTS[surface]
+	for puff in _dust_sprites:
+		puff.modulate = _dust_tint
 
 
 func _surface_for_stage(stage_id: String) -> String:

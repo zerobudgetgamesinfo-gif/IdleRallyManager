@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://data/car_def.gd" id="1_87mr2"]
 [ext_resource type="Texture2D" uid="uid://cna2vt3olf4j4" path="res://scenes/draft/art/cars/dart.svg" id="2_portrait"]
 [ext_resource type="Texture2D" uid="uid://cpgl5a25p7674" path="res://scenes/stage/art/cars/dart.svg" id="3_stage"]
+[ext_resource type="Texture2D" path="res://scenes/stage/art/cars/dart_rival.svg" id="4_rival"]
 
 [resource]
 script = ExtResource("1_87mr2")
@@ -15,3 +16,6 @@ jump = 4
 reliability = 5
 portrait = ExtResource("2_portrait")
 stage_sprite = ExtResource("3_stage")
+rival_sprite = ExtResource("4_rival")
+wheel_centers = PackedVector2Array(23, 48, 73, 48)
+wheel_radius = 7.0

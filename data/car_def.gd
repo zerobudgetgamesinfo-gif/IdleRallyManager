@@ -16,6 +16,12 @@ extends Resource
 @export var portrait: Texture2D
 ## Side view on the road during the reveal, with no card. Presentation only.
 @export var stage_sprite: Texture2D
+## Small side silhouette for rival markers. Presentation only.
+@export var rival_sprite: Texture2D
+## Wheel hub centres in stage-art pixels (96x64). Empty for cars on skis.
+@export var wheel_centers: PackedVector2Array = PackedVector2Array()
+## Wheel radius in stage-art pixels; center.y + radius == StageView.CAR_GROUND_Y.
+@export var wheel_radius: float = 7.0
 
 
 func stat(stat_name: String) -> int:

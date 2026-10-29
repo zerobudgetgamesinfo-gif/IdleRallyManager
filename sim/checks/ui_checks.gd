@@ -136,6 +136,43 @@ func _check_assets() -> void:
 	for car in CATALOG.cars:
 		_ok(car.portrait != null, "car %s has no portrait" % car.id)
 		_ok(car.stage_sprite != null, "car %s has no stage sprite" % car.id)
+		_ok(car.rival_sprite != null, "car %s has no rival sprite" % car.id)
+		if car.portrait != null:
+			_ok(car.portrait.get_size() == Vector2(96, 64), "car %s portrait art is not 96x64" % car.id)
+		if car.stage_sprite != null:
+			_ok(car.stage_sprite.get_size() == Vector2(96, 64), "car %s stage art is not 96x64" % car.id)
+		if car.rival_sprite != null:
+			_ok(car.rival_sprite.get_size() == Vector2(26, 14), "car %s rival art is not 26x14" % car.id)
+		if car.id == "sled":
+			_ok(car.wheel_centers.is_empty(), "Sled should use skis instead of wheels")
+		else:
+			_ok(not car.wheel_centers.is_empty(), "car %s has no wheel centres" % car.id)
+			_ok(car.wheel_radius > 0.0, "car %s has no wheel radius" % car.id)
+			for center in car.wheel_centers:
+				_ok(
+					absf(center.y + car.wheel_radius - StageView.CAR_GROUND_Y) <= 0.5,
+					"car %s wheel misses the ground line at %s" % [car.id, center]
+				)
+	_ok(is_equal_approx(StageView.wheel_angle(0.0), 0.0), "wheel angle does not start at zero")
+	for f in [0.0, 0.25, 0.5, 0.75, 1.0]:
+		var angle := StageView.wheel_angle(f)
+		_ok(angle >= 0.0 and angle < TAU, "wheel angle is outside [0, TAU) at f=%s" % f)
+	var frame_fraction := 1.0 / (Timing.STAGE_REVEAL_SEC * 30.0)
+	var frame_angle := absf(StageView.wheel_angle(0.5 + frame_fraction) - StageView.wheel_angle(0.5))
+	frame_angle = minf(frame_angle, TAU - frame_angle)
+	_ok(absf(frame_angle) <= deg_to_rad(36.0), "wheel angle advances too far per reveal frame")
+	var dust_sample := StageView.dust_puff(0.0001, 0)
+	var repeated_dust_sample := StageView.dust_puff(0.0001, 0)
+	_ok(dust_sample == repeated_dust_sample, "dust puff changes for the same reveal fraction")
+	for index in StageView.DUST_PUFFS:
+		var puff := StageView.dust_puff(0.0001, index)
+		var offset: Vector2 = puff["offset"]
+		var alpha := float(puff["alpha"])
+		_ok(offset.x <= 0.0, "dust puff %s is ahead of the car" % index)
+		_ok(alpha >= 0.0 and alpha <= 1.0, "dust puff %s alpha is outside [0, 1]" % index)
+	var first_alpha := float(StageView.dust_puff(0.0001, 0)["alpha"])
+	var later_alpha := float(StageView.dust_puff(0.0002, 0)["alpha"])
+	_ok(later_alpha < first_alpha, "dust puff alpha does not fade over its phase")
 	_ok(is_equal_approx(StageView.car_x(0.0, 800.0, 80.0), StageView.ROAD_MARGIN), "the car does not start at the left end")
 	_ok(
 		is_equal_approx(StageView.car_x(1.0, 800.0, 80.0), 800.0 - StageView.ROAD_MARGIN - 80.0),
@@ -592,6 +629,37 @@ func _check_reveal_audio_and_sleep() -> void:
 	var now := Time.get_unix_time_from_system()
 	Session.confirm_draft("pip", "teapot", now, 1)
 	await _frames(3)
+	var stage := main.find_child("StageView", true, false) as StageView
+	_ok(stage != null, "the reveal has no StageView")
+	if stage != null:
+		var car_sprite := stage.get_node("%Car") as Sprite2D
+		var teapot := CATALOG.car("teapot")
+		_ok(
+			car_sprite.get_child_count() == teapot.wheel_centers.size(),
+			"the drafted car has %s wheel nodes, expected %s"
+			% [car_sprite.get_child_count(), teapot.wheel_centers.size()]
+		)
+		stage._place_rivals(0.0, 0.0, 0.0, true)
+		var champ := Session.championship
+		var ranked := RevealPlayback.sample(stage._playback_rows(), 0.0)
+		var rival_index := 0
+		for row in ranked:
+			var entry_id := str(row.get("entry_id", ""))
+			if entry_id == Championship.PLAYER_ID:
+				continue
+			var entry := champ.find_entry(entry_id)
+			var rival_car := CATALOG.car(entry.car_id) if entry != null else null
+			var marker := stage._rivals_sprites[rival_index]
+			_ok(
+				rival_car != null and marker.texture == rival_car.rival_sprite,
+				"rival %s does not use its car's silhouette" % entry_id
+			)
+			var band := marker.get_node("RivalBand") as Sprite2D
+			_ok(
+				band.modulate == StageView.RIVAL_COLORS[rival_index],
+				"rival %s band lost its distinguishing tint" % entry_id
+			)
+			rival_index += 1
 	var loop := main.find_child("Loop", true, false) as AudioStreamPlayer
 	_ok(loop != null and loop.playing, "no reveal loop during the reveal")
 	_ok(OS.low_processor_usage_mode_sleep_usec == StageView.REVEAL_SLEEP_USEC, "reveal sleep is %s" % OS.low_processor_usage_mode_sleep_usec)

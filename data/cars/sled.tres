@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://data/car_def.gd" id="1_sled"]
 [ext_resource type="Texture2D" uid="uid://cererrcnwybou" path="res://scenes/draft/art/cars/sled.svg" id="2_portrait"]
 [ext_resource type="Texture2D" uid="uid://x0t2646s2ngs" path="res://scenes/stage/art/cars/sled.svg" id="3_stage"]
+[ext_resource type="Texture2D" path="res://scenes/stage/art/cars/sled_rival.svg" id="4_rival"]
 
 [resource]
 script = ExtResource("1_sled")
@@ -17,3 +18,6 @@ reliability = 7
 focus = 1
 portrait = ExtResource("2_portrait")
 stage_sprite = ExtResource("3_stage")
+rival_sprite = ExtResource("4_rival")
+wheel_centers = PackedVector2Array()
+wheel_radius = 7.0

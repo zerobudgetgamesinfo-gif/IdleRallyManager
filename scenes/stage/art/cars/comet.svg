@@ -1,2 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64">
+<style>svg&gt;*:not(.rally-art){display:none}.rally-art,.rally-art *{display:inline}</style>
+<g class="rally-art">
+<path d="M7 45 L9 37 L20 34 L35 30 L45 21 L66 19 L79 29 L88 37 L91 45 L87 48 L83 48 Q81 39 74 39 Q67 39 65 48 L35 48 Q33 39 26 39 Q19 39 17 48 L11 48 Z" fill="#765aa8"/>
+<path d="M35 30 L45 21 L66 19 L76 28 L57 31 Z" fill="#b99bd5"/>
+<path d="M40 29 L47 22 L55 22 L55 30 Z" fill="#263b52"/>
+<path d="M58 22 L65 21 L74 28 L58 29 Z" fill="#263b52"/>
+<path d="M48 23 L54 22 L54 24 L46 28 Z" fill="#d8e5e5"/>
+<path d="M10 42 L17 40 L15 48 L11 48 Z M35 45 L64 45 L65 48 L35 48 Z M83 40 L88 42 L87 48 L83 48 Z" fill="#493d70"/>
+<path d="M9 37 L20 34 L35 30 L36 34 L17 39 L9 41 Z" fill="#d9a941"/>
+<path d="M10 40 L17 39 L16 42 L10 43 Z M37 42 L64 42 L64 44 L36 44 Z" fill="#f0cf72"/>
+<path d="M15 47 L18 47 L16 53 L13 53 Z M82 47 L85 47 L87 53 L84 53 Z" fill="#322d3f"/>
+<path d="M15 47 Q16 39 26 39 Q35 39 36 47 L32 47 Q31 42 26 42 Q21 42 19 47 Z M63 47 Q64 39 74 39 Q83 39 84 47 L80 47 Q79 42 74 42 Q69 42 67 47 Z" fill="#493d70"/>
+<circle cx="49" cy="37" r="5.2" fill="#f1e8d5"/>
+<circle cx="49" cy="37" r="3.7" fill="#d9a941"/>
+<path d="M48 34 L50 34 L50 40 L48 40 Z" fill="#fff4d5"/>
+<path d="M85 35 L91 38 L89 41 L84 39 Z" fill="#f7e6b6"/>
+<path d="M83 37 L89 39 L88 40 L83 39 Z" fill="#fff8de"/>
+<path d="M50 18 L53 13 L57 13 L58 20 Z" fill="#493d70"/>
+<circle cx="54" cy="13" r="2.2" fill="#f4d77c"/>
+</g>
 <path d="M4 40 L22 36 L16 44 Z" fill="#f2c25c" fill-opacity="0.7"/><path d="M14 46 Q18 34 40 30 L56 22 Q72 20 84 32 Q92 38 88 46 Z" fill="#7a63b0"/><path d="M52 24 Q66 22 76 32 L46 32 Z" fill="#dfe9f4"/><rect x="18" y="40" width="68" height="2.6" fill="#f8f0e0" fill-opacity="0.8"/><circle cx="30" cy="47" r="7" fill="#2b2420"/><circle cx="30" cy="47" r="2.8" fill="#c8bba5"/><circle cx="70" cy="47" r="7" fill="#2b2420"/><circle cx="70" cy="47" r="2.8" fill="#c8bba5"/></svg>
