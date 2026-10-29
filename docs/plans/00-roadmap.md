@@ -21,7 +21,7 @@ The MVP does not race, save a championship, or show final art. Those are phases 
 | 4 | [04-stage-presentation.md](04-stage-presentation.md) | Phase 3 | The reveal plays the solved timeline. |
 | 5 | [05-draft-and-service.md](05-draft-and-service.md) | Phases 2 and 3 | Draft, cards, defaults, and the final table are playable. |
 | 6 | [06-content-and-career.md](06-content-and-career.md) | Phases 4 and 5 | The starter catalog is tuned. Career starts only after that. |
-| 7 | [07-polish-and-desktop.md](07-polish-and-desktop.md) | Phase 6 | Art, audio, accessibility, export. |
+| 7 | [07-polish-and-desktop.md](07-polish-and-desktop.md) | Phase 6 | Art, audio, accessibility, collapsed corner dock, side dock, export. |
 | 8 | [08-multiplayer-later.md](08-multiplayer-later.md) | Phase 2 | A written seam. No network code. |
 
 ```mermaid

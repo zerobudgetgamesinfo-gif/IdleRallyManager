@@ -6,11 +6,13 @@ extends Control
 const HANDLE_HEIGHT := 16.0
 const SETTINGS_BUTTON_WIDTH := 96.0
 const SETTINGS_BUTTON_HEIGHT := 28.0
-const SETTINGS_BUTTON_GAP := 8.0
 const SETTINGS_PANEL_HEIGHT := 88.0
 const SIDE_PAD := 8.0
-const TICKER_HANDLE_HEIGHT := 6.0
-const TICKER_PAD := 6.0
+const CORNER_HANDLE_HEIGHT := 6.0
+const CORNER_PAD := 6.0
+const CHROME_BUTTON_GAP := 6.0
+const GEAR_BUTTON_SIZE := 28.0
+const FOLD_BUTTON_WIDTH := 64.0
 const GRIP_LONG := 48.0
 const GRIP_SHORT := 4.0
 const TIME_SCALES: Array[int] = [1, 10, 60, 120]
@@ -27,11 +29,11 @@ var _shown_scale := 1.0
 @onready var _hud: HudStrip = %HudStrip
 @onready var _handle: Control = %MouseDragHandle
 @onready var _settings_button: Button = %SettingsButton
+@onready var _fold_button: Button = %FoldButton
 @onready var _settings_panel: PanelContainer = %SettingsPanel
 @onready var _settings_row: HFlowContainer = %SettingsRow
 @onready var _compact_button: Button = %Compact
 @onready var _cozy_button: Button = %Cozy
-@onready var _ticker_button: Button = %Ticker
 @onready var _always_on_top: CheckBox = %AlwaysOnTop
 @onready var _mute: CheckBox = %Mute
 @onready var _exclude_capture: CheckBox = %ExcludeCapture
@@ -63,6 +65,8 @@ func _ready() -> void:
 		Session.phase_changed.connect(_on_session_phase_changed)
 	if not Dock.edge_changed.is_connected(_on_edge_changed):
 		Dock.edge_changed.connect(_on_edge_changed)
+	if not Dock.collapsed_changed.is_connected(_on_collapsed_changed):
+		Dock.collapsed_changed.connect(_on_collapsed_changed)
 	apply_mute()
 	_sync_championship_controls()
 	_apply_layout()
@@ -85,17 +89,15 @@ func _add_sheen() -> void:
 func _bind_chrome() -> void:
 	_handle.gui_input.connect(_on_handle_gui_input)
 	_settings_button.pressed.connect(_on_settings_pressed)
+	_fold_button.pressed.connect(_on_fold_pressed)
 	_compact_button.toggled.connect(_on_preset_toggled.bind(Dock.PRESET_COMPACT))
 	_cozy_button.toggled.connect(_on_preset_toggled.bind(Dock.PRESET_COZY))
-	_ticker_button.toggled.connect(_on_preset_toggled.bind(Dock.PRESET_TICKER))
 	_always_on_top.toggled.connect(_on_always_on_top_toggled)
 	_pause_button.pressed.connect(_on_pause_pressed)
 	_abandon_button.pressed.connect(_on_abandon_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
 	if Dock.get_preset() == Dock.PRESET_COMPACT:
 		_compact_button.set_pressed_no_signal(true)
-	elif Dock.get_preset() == Dock.PRESET_TICKER:
-		_ticker_button.set_pressed_no_signal(true)
 	else:
 		_cozy_button.set_pressed_no_signal(true)
 	_always_on_top.set_pressed_no_signal(Dock.is_always_on_top())
@@ -121,7 +123,7 @@ func _bind_chrome() -> void:
 func _group_settings() -> void:
 	var row := _settings_row
 	var groups: Array = [
-		[row.get_node("Height"), _compact_button, _cozy_button, _ticker_button],
+		[row.get_node("Height"), _compact_button, _cozy_button],
 		[_always_on_top, _mute, _exclude_capture],
 		[row.get_node("EdgeLabel"), _edge_bottom, _edge_left],
 		[row.get_node("ScaleLabel")] + _scale_buttons.values(),
@@ -269,25 +271,70 @@ func _apply_layout() -> void:
 	var radius_scale := maxf(scale_x, scale_y)
 	var radius := Dock.CORNER_RADIUS / radius_scale
 	_strip_style.set_corner_radius_all(maxi(roundi(radius), 0))
+	_sync_chrome_labels()
 
-	_settings_button.offset_left = -(radius + SETTINGS_BUTTON_WIDTH)
-	_settings_button.offset_right = -radius
-	_settings_button.anchor_top = 0.0
-	_settings_button.anchor_bottom = 0.0
-	_settings_button.offset_top = 0.0
-	_settings_button.offset_bottom = SETTINGS_BUTTON_HEIGHT
-
-	if Dock.is_ticker():
-		_apply_ticker_layout(radius)
+	if Dock.is_collapsed():
+		_apply_corner_layout(radius)
 	elif Dock.is_side():
 		_apply_side_layout(radius)
 	else:
 		_apply_bottom_layout(radius)
 
 
+func _sync_chrome_labels() -> void:
+	var compact_settings := Dock.is_side() or (Dock.is_collapsed() and not Dock.is_focus())
+	var settings_open := _settings_panel.visible
+	if compact_settings:
+		_settings_button.text = "×" if settings_open else "⚙"
+	else:
+		_settings_button.text = "Close" if settings_open else "Settings"
+	_settings_button.accessibility_name = "Close settings" if settings_open else "Settings"
+	var compact_fold := Dock.is_collapsed() and not Dock.is_focus()
+	_fold_button.text = "↑" if compact_fold else "Unfold" if Dock.is_collapsed() else "Fold"
+	_fold_button.accessibility_name = "Unfold strip" if Dock.is_collapsed() else "Fold strip"
+	_fold_button.accessibility_description = (
+		"Restores the expanded strip on its saved edge."
+		if Dock.is_collapsed()
+		else "Folds the strip into a bottom-right tile."
+	)
+
+
+func _place_chrome_buttons(radius: float, top_aligned: bool) -> float:
+	var compact_settings := Dock.is_side() or (Dock.is_collapsed() and not Dock.is_focus())
+	var settings_width := GEAR_BUTTON_SIZE if compact_settings else SETTINGS_BUTTON_WIDTH
+	var fold_width := (
+		GEAR_BUTTON_SIZE
+		if Dock.is_collapsed() and not Dock.is_focus()
+		else FOLD_BUTTON_WIDTH
+	)
+	var settings_right := -radius
+	var settings_left := settings_right - settings_width
+	_settings_button.anchor_left = 1.0
+	_settings_button.anchor_right = 1.0
+	_settings_button.anchor_top = 0.0 if top_aligned else 1.0
+	_settings_button.anchor_bottom = _settings_button.anchor_top
+	_settings_button.offset_left = settings_left
+	_settings_button.offset_right = settings_right
+	_settings_button.offset_top = 0.0 if top_aligned else -(radius + SETTINGS_BUTTON_HEIGHT)
+	_settings_button.offset_bottom = SETTINGS_BUTTON_HEIGHT if top_aligned else -radius
+	_settings_button.custom_minimum_size.x = settings_width
+
+	var fold_right := settings_left - CHROME_BUTTON_GAP
+	_fold_button.anchor_left = 1.0
+	_fold_button.anchor_right = 1.0
+	_fold_button.anchor_top = _settings_button.anchor_top
+	_fold_button.anchor_bottom = _settings_button.anchor_bottom
+	_fold_button.offset_left = fold_right - fold_width
+	_fold_button.offset_right = fold_right
+	_fold_button.offset_top = _settings_button.offset_top
+	_fold_button.offset_bottom = _settings_button.offset_bottom
+	_fold_button.custom_minimum_size.x = fold_width
+	return radius + settings_width + CHROME_BUTTON_GAP + fold_width + CHROME_BUTTON_GAP
+
+
 ## The drag handle is the top bar, the settings cluster sits on the bottom, and the HUD fills the rest.
 func _apply_bottom_layout(radius: float) -> void:
-	var button_span := radius + SETTINGS_BUTTON_WIDTH + SETTINGS_BUTTON_GAP
+	var button_span := _place_chrome_buttons(radius, true)
 	_set_handle_anchors(0.0, 1.0, 0.0, 0.0)
 	_handle.offset_left = radius
 	_handle.offset_top = 0.0
@@ -310,42 +357,41 @@ func _apply_bottom_layout(radius: float) -> void:
 	_hud.offset_bottom = -radius
 
 
-## The ticker row is the bottom TICKER_ROW strip of the window. The drag handle is a thin top bar, the
-## settings button sits level with the row, and the settings cluster opens above the row.
-func _apply_ticker_layout(radius: float) -> void:
-	var row := HudStrip.TICKER_ROW_HEIGHT
+## The corner tile keeps controls by its upper edge; its popover puts them in the lower row.
+func _apply_corner_layout(radius: float) -> void:
+	var popover_open := Dock.is_focus()
+	var button_span := radius
+	if popover_open:
+		_place_chrome_buttons(radius, false)
+	else:
+		button_span = _place_chrome_buttons(radius, true)
 	_set_handle_anchors(0.0, 1.0, 0.0, 0.0)
 	_handle.offset_left = radius
 	_handle.offset_top = 0.0
-	_handle.offset_right = -(radius + SETTINGS_BUTTON_WIDTH + SETTINGS_BUTTON_GAP)
-	_handle.offset_bottom = TICKER_HANDLE_HEIGHT
+	_handle.offset_right = -button_span
+	_handle.offset_bottom = CORNER_HANDLE_HEIGHT
 	_handle.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_set_grip(Vector2(GRIP_LONG, GRIP_SHORT))
 
-	var below := TICKER_PAD + (row - SETTINGS_BUTTON_HEIGHT) * 0.5
-	_settings_button.anchor_top = 1.0
-	_settings_button.anchor_bottom = 1.0
-	_settings_button.offset_bottom = -below
-	_settings_button.offset_top = -(below + SETTINGS_BUTTON_HEIGHT)
-
-	_set_panel_anchors(1.0)
+	_set_panel_anchors(0.0)
 	_settings_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_settings_panel.offset_left = radius
 	_settings_panel.offset_right = -radius
-	_settings_panel.offset_bottom = -(TICKER_PAD + row + TICKER_PAD)
-	_settings_panel.offset_top = _settings_panel.offset_bottom - SETTINGS_PANEL_HEIGHT
+	_settings_panel.offset_top = CORNER_HANDLE_HEIGHT + CORNER_PAD
+	_settings_panel.offset_bottom = -(radius + SETTINGS_BUTTON_HEIGHT + CORNER_PAD)
 
 	_size_groups(0.0)
 	_hud.offset_left = radius
-	_hud.offset_top = TICKER_HANDLE_HEIGHT
+	_hud.offset_top = maxf(CORNER_HANDLE_HEIGHT, radius)
 	_hud.offset_right = -radius
-	_hud.offset_bottom = -TICKER_PAD
+	_hud.offset_bottom = -radius
 
 
 ## The strip is a column on the left edge, so the drag handle moves to the inner (right) edge.
 ## The settings button stays on top, and the cluster covers the column below it.
 func _apply_side_layout(radius: float) -> void:
 	var top := SETTINGS_BUTTON_HEIGHT + SIDE_PAD
+	_place_chrome_buttons(radius, true)
 	_set_handle_anchors(1.0, 1.0, 0.0, 1.0)
 	_handle.offset_left = -HANDLE_HEIGHT
 	_handle.offset_right = 0.0
@@ -437,8 +483,6 @@ func _on_handle_gui_input(event: InputEvent) -> void:
 
 func _on_settings_pressed() -> void:
 	_settings_panel.visible = not _settings_panel.visible
-	_settings_button.text = "Close" if _settings_panel.visible else "Settings"
-	_settings_button.accessibility_name = "Close settings" if _settings_panel.visible else "Settings"
 	if not _settings_panel.visible:
 		_reset_abandon_button()
 	Dock.set_settings_open(_settings_panel.visible)
@@ -476,6 +520,18 @@ func _on_edge_changed() -> void:
 	_sync_edge_buttons()
 	_apply_layout()
 	Dock.refresh_hit_polygon()
+
+
+func _on_collapsed_changed() -> void:
+	if _settings_panel.visible:
+		_settings_panel.visible = false
+		_reset_abandon_button()
+	_apply_layout()
+	Dock.refresh_hit_polygon()
+
+
+func _on_fold_pressed() -> void:
+	Dock.set_collapsed(not Dock.is_collapsed())
 
 
 func _sync_edge_buttons() -> void:
@@ -564,6 +620,9 @@ func _on_skip_pressed() -> void:
 
 func _on_session_phase_changed() -> void:
 	_reset_abandon_button()
+	if Dock.is_collapsed() and _settings_panel.visible:
+		_settings_panel.visible = false
+		Dock.set_settings_open(false)
 	_sync_championship_controls()
 	_apply_layout()
 

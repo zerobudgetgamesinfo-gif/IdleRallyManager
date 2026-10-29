@@ -21,11 +21,14 @@ func run() -> void:
 	# Dock loads the player's window.cfg, so pin the layout the checks assume and put it back after.
 	var stored_preset := Dock.get_preset()
 	var stored_edge := Dock.get_edge()
+	var stored_collapsed := Dock.is_collapsed()
 	Dock.set_edge(Dock.EDGE_BOTTOM)
 	Dock.set_preset(Dock.PRESET_COZY)
+	Dock.set_collapsed(false)
 	await _run_checks()
 	Dock.set_preset(stored_preset)
 	Dock.set_edge(stored_edge)
+	Dock.set_collapsed(stored_collapsed)
 
 
 func _run_checks() -> void:
@@ -34,7 +37,8 @@ func _run_checks() -> void:
 	_check_assets()
 	await _check_poses_and_loop()
 	await _check_layout()
-	await _check_ticker()
+	await _check_corner_chrome()
+	await _check_corner()
 	await _check_still_idle_and_service()
 	await _check_reveal_audio_and_sleep()
 	await _check_intro_once()
@@ -80,14 +84,18 @@ func _check_geometry() -> void:
 	var offset_usable := Rect2i(1920, 30, 1600, 900)
 	var left_offset := DockGeometry.window_rect(offset_usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_COZY, false, 1.5)
 	_ok(left_offset == Rect2i(1920, 30, 330, 900), "left on a second screen %s" % left_offset)
-	var ticker := DockGeometry.window_rect(usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_TICKER, false, 1.0)
-	_ok(ticker == Rect2i(0, 976, 1920, 64), "ticker rest rect %s" % ticker)
-	var ticker_open := DockGeometry.window_rect(usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_TICKER, true, 1.0)
-	_ok(ticker_open == Rect2i(0, 700, 1920, 340), "ticker open rect %s" % ticker_open)
-	var left_ticker := DockGeometry.window_rect(usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_TICKER, false, 1.0)
-	_ok(left_ticker == Rect2i(0, 0, 144, 1040), "a left ticker is a compact column %s" % left_ticker)
-	_ok(DockGeometry.is_ticker(DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_TICKER), "bottom ticker")
-	_ok(not DockGeometry.is_ticker(DockGeometry.EDGE_LEFT, DockGeometry.PRESET_TICKER), "left is never a ticker")
+	var compact_corner := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_COMPACT, false, 1.0, true
+	)
+	_ok(compact_corner == Rect2i(1776, 896, 144, 144), "compact corner rect %s" % compact_corner)
+	var corner_popover := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_COMPACT, true, 1.0, true
+	)
+	_ok(corner_popover == Rect2i(1280, 700, 640, 340), "corner popover rect %s" % corner_popover)
+	var cozy_corner := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_COZY, false, 1.0, true
+	)
+	_ok(cozy_corner == Rect2i(1700, 820, 220, 220), "collapsed geometry depends on edge %s" % cozy_corner)
 	_ok(DockGeometry.nearest_step(1.3) == 1.25, "snap 1.3")
 	_ok(DockGeometry.nearest_step(9.0) == 2.0, "snap 9")
 	_ok(DockGeometry.nearest_step(0.0) == 1.0, "snap 0")
@@ -213,7 +221,7 @@ func _check_layout() -> void:
 		await _frames()
 		var bounds := Rect2(Vector2.ZERO, Vector2(window_size))
 		var label := "%s %s" % [edge, window_size]
-		for node_name in ["QuitButton", "SettingsButton", "Mute", "EdgeBottom", "EdgeLeft", "Scale100", "Scale200", "ExcludeCapture", "ScaleMatch"]:
+		for node_name in ["QuitButton", "SettingsButton", "FoldButton", "Mute", "EdgeBottom", "EdgeLeft", "Scale100", "Scale200", "ExcludeCapture", "ScaleMatch"]:
 			var control := main.get_node("%" + node_name) as Control
 			_ok(
 				bounds.encloses(control.get_global_rect()),
@@ -236,92 +244,264 @@ func _check_layout() -> void:
 	viewport.free()
 
 
-# --- Ticker ----------------------------------------------------------------
-
-func _check_ticker() -> void:
+func _check_corner_chrome() -> void:
 	_reset_session()
-	var preset := Dock.get_preset()
-	var edge := Dock.get_edge()
-	# The layout check above leaves its settings panel open on the autoload.
+	var stored_preset := Dock.get_preset()
+	var stored_edge := Dock.get_edge()
+	var stored_collapsed := Dock.is_collapsed()
 	Dock.set_settings_open(false)
 	Dock.set_panel_phase(false)
 	Dock.set_edge(Dock.EDGE_BOTTOM)
-	Dock.set_preset(Dock.PRESET_TICKER)
-	# The panel stays shut behind the chip until the player opens it.
-	Dock.set_panel_phase(true)
-	_ok(not Dock.is_focus(), "a choice phase auto-expanded the ticker")
-	Dock.set_panel_open(true)
-	_ok(Dock.is_focus(), "opening the panel did not grow the window")
-	Dock.set_panel_phase(false)
-	_ok(not Dock.is_focus() and not Dock.is_panel_open(), "leaving the choice phase left the panel open")
-	Dock.set_settings_open(true)
-	_ok(Dock.is_focus(), "settings did not borrow the open height")
-	Dock.set_settings_open(false)
-	_ok(not Dock.is_focus(), "closing settings kept the ticker open")
-	# Compact and cozy keep their old behavior: a choice phase grows the window at once.
-	Dock.set_preset(Dock.PRESET_COZY)
-	Dock.set_panel_phase(true)
-	_ok(Dock.is_focus(), "cozy no longer grows on a choice phase")
-	Dock.set_edge(Dock.EDGE_LEFT)
-	Dock.set_preset(Dock.PRESET_TICKER)
-	_ok(not Dock.is_ticker(), "a left-edge strip counted as a ticker")
-	_ok(Dock.is_focus(), "a left-edge choice phase did not take focus")
-	Dock.set_panel_phase(false)
-	Dock.set_edge(Dock.EDGE_BOTTOM)
+	Dock.set_preset(Dock.PRESET_COMPACT)
+	Dock.set_collapsed(true)
 
 	var viewport := SubViewport.new()
-	viewport.size = Vector2i(1280, 64)
+	viewport.size = Vector2i(144, 144)
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_tree.root.add_child(viewport)
 	var main := MAIN_SCENE.instantiate() as Control
 	viewport.add_child(main)
 	await _frames()
-	var rest := Rect2(Vector2.ZERO, Vector2(viewport.size))
-	for node_name in ["SettingsButton", "MouseDragHandle"]:
+	var tile := Rect2(Vector2.ZERO, Vector2(viewport.size))
+	var usable := Rect2i(0, 0, 1920, 1040)
+	var collapsed_rect := DockGeometry.window_rect(
+		usable, Dock.EDGE_BOTTOM, Dock.PRESET_COMPACT, false, 1.0, Dock.is_collapsed()
+	)
+	_ok(collapsed_rect == Rect2i(1776, 896, 144, 144), "collapsed compact rect %s" % collapsed_rect)
+	for node_name in ["SettingsButton", "FoldButton", "MouseDragHandle"]:
 		var control := main.get_node("%" + node_name) as Control
-		_ok(rest.encloses(control.get_global_rect()), "%s leaves the ticker: %s" % [node_name, control.get_global_rect()])
-	var row := main.find_child("Ticker", true, false) as Control
-	_ok(row != null and rest.encloses(row.get_global_rect()), "the idle ticker row leaves the window")
-	var start := _first_button(main, "Start championship")
-	_ok(start != null and rest.encloses(start.get_global_rect()), "the Start button leaves the ticker")
-	# Settings borrow the open height, so every control must fit the tall window.
-	viewport.size = Vector2i(1280, 340)
-	(main.get_node("%SettingsButton") as Button).pressed.emit()
-	main.get_node("%ExcludeCapture").visible = true
-	main.get_node("%ScaleMatch").visible = true
+		_ok(tile.encloses(control.get_global_rect()), "%s leaves the corner tile" % node_name)
+	var tile_handle := main.get_node("%MouseDragHandle") as Control
+	_ok(tile_handle.size.x > 0.0, "the corner tile has no drag handle width")
+	var tile_gear := (main.get_node("%SettingsButton") as Control).get_global_rect()
+	var tile_fold := (main.get_node("%FoldButton") as Control).get_global_rect()
+	_ok(not tile_gear.intersects(tile_fold), "the corner tile gear and fold button overlap")
+	var fold := main.get_node("%FoldButton") as Button
+	fold.pressed.emit()
+	_ok(not Dock.is_collapsed(), "the fold button did not unfold the strip")
+	var expanded := DockGeometry.window_rect(
+		usable, Dock.EDGE_BOTTOM, Dock.PRESET_COMPACT, false, 1.0
+	)
+	_ok(expanded == Rect2i(0, 896, 1920, 144), "unfolded strip rect %s" % expanded)
+	viewport.size = expanded.size
 	await _frames()
-	var open := Rect2(Vector2.ZERO, Vector2(viewport.size))
-	for node_name in ["QuitButton", "SettingsButton", "Mute", "Ticker", "EdgeLeft", "Scale200", "ExcludeCapture", "ScaleMatch"]:
+	var bar := Rect2(Vector2.ZERO, Vector2(viewport.size))
+	for node_name in ["SettingsButton", "FoldButton"]:
 		var control := main.get_node("%" + node_name) as Control
-		_ok(open.encloses(control.get_global_rect()), "%s leaves the open ticker: %s" % [node_name, control.get_global_rect()])
+		_ok(bar.encloses(control.get_global_rect()), "%s leaves the unfolded bar" % node_name)
+	fold.pressed.emit()
+	_ok(Dock.is_collapsed(), "the fold button did not collapse the strip")
+	viewport.size = Vector2i(144, 144)
+	await _frames()
+	var settings := main.get_node("%SettingsButton") as Button
+	settings.pressed.emit()
+	_ok(Dock.is_focus(), "the settings gear did not open the corner popover")
+	viewport.size = Vector2i(640, 340)
+	await _frames()
+	var popover := Rect2(Vector2.ZERO, Vector2(viewport.size))
+	var gear_rect := settings.get_global_rect()
+	var fold_rect := fold.get_global_rect()
+	_ok(popover.encloses(gear_rect), "SettingsButton leaves the corner popover: %s" % gear_rect)
+	_ok(popover.encloses(fold_rect), "FoldButton leaves the corner popover: %s" % fold_rect)
+	_ok(not gear_rect.intersects(fold_rect), "the popover gear and fold button overlap")
 	var panel := main.get_node("%SettingsPanel") as Control
-	_ok(panel.get_combined_minimum_size().y <= panel.size.y + 1.0, "ticker settings overflow their panel")
-	_ok(not panel.get_global_rect().intersects(row.get_global_rect()) if is_instance_valid(row) else true, "settings cover the ticker row")
-	(main.get_node("%SettingsButton") as Button).pressed.emit()
-	# A draft waits behind the chip; the chip opens it, and a second press shuts it.
+	_ok(popover.encloses(panel.get_global_rect()), "the corner settings panel leaves the popover")
+	fold.pressed.emit()
+	_ok(
+		not Dock.is_collapsed() and not panel.visible and not Dock.is_panel_open(),
+		"unfolding from open settings did not close the popover"
+	)
+	viewport.size = expanded.size
+	await _frames()
+	settings.pressed.emit()
+	_ok(panel.visible, "settings did not open on the expanded bar")
+	fold.pressed.emit()
+	_ok(Dock.is_collapsed() and not panel.visible, "collapsing with settings open left the popover open")
+	viewport.size = Vector2i(144, 144)
+	Dock.set_settings_open(false)
+	Dock.set_panel_phase(false)
+	Dock.set_preset(stored_preset)
+	Dock.set_edge(stored_edge)
+	Dock.set_collapsed(stored_collapsed)
+	_tree.root.remove_child(viewport)
+	viewport.free()
+
+
+# --- Corner tile and popover -----------------------------------------------
+
+func _check_corner() -> void:
+	_reset_session()
+	var preset := Dock.get_preset()
+	var edge := Dock.get_edge()
+	var collapsed := Dock.is_collapsed()
+	var seen_hint := Dock._seen_panel_hint
+	Dock.set_settings_open(false)
+	Dock.set_panel_phase(false, false, Session.phase())
+	Dock.set_edge(Dock.EDGE_BOTTOM)
+	Dock.set_preset(Dock.PRESET_COMPACT)
+	Dock.set_collapsed(true)
+	Dock._seen_panel_hint = false
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(144, 144)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_tree.root.add_child(viewport)
+	var main := MAIN_SCENE.instantiate() as Control
+	viewport.add_child(main)
+	await _frames(3)
+	var idle := Rect2(Vector2.ZERO, Vector2(viewport.size))
+	var start := _first_button(main, "Start")
+	_ok(start != null and idle.encloses(start.get_global_rect()), "the corner Start control leaves its tile")
+	_ok(start != null and start.accessibility_name == "Start championship", "the corner Start name is missing")
+	_ok(not Dock.is_focus(), "the idle corner tile grew without input")
+	_audit_still(main, "collapsed idle", false)
+
 	Session.start_draft()
 	await _frames(3)
 	var chip := main.find_child("PanelChip", true, false) as Button
-	_ok(chip != null, "the ticker shows no chip while a draft is pending")
-	# The very first draft opens once as a hint, so shut it first when it is already open.
-	if Dock.is_panel_open():
-		chip.pressed.emit()
-		await _frames(3)
-	_ok(not Dock.is_focus() and main.find_child("DraftView", true, false) == null, "the draft opened by itself")
-	(main.find_child("PanelChip", true, false) as Button).pressed.emit()
-	await _frames(3)
-	_ok(Dock.is_focus() and main.find_child("DraftView", true, false) != null, "the chip did not open the draft")
-	(main.find_child("PanelChip", true, false) as Button).pressed.emit()
-	await _frames(3)
-	_ok(not Dock.is_focus() and main.find_child("DraftView", true, false) == null, "the chip did not close the draft")
-	_reset_session()
+	_ok(Dock.is_panel_open() and Dock.is_focus(), "the first draft did not show its one-time popover hint")
+	_ok(chip != null and main.find_child("DraftView", true, false) != null, "the first draft popover has no draft body")
+	viewport.size = Vector2i(640, 340)
+	main.call("_apply_layout")
 	await _frames(2)
+	chip = main.find_child("PanelChip", true, false) as Button
+	if chip != null:
+		chip.pressed.emit()
+	viewport.size = Vector2i(144, 144)
+	main.call("_apply_layout")
+	await _frames(3)
+	_ok(
+		not Dock.is_focus() and main.find_child("DraftView", true, false) == null,
+		"the chip did not close the draft popover (focus=%s open=%s body=%s)"
+		% [Dock.is_focus(), Dock.is_panel_open(), main.find_child("DraftView", true, false) != null]
+	)
+
+	Session.abandon()
+	await _frames(3)
+	Session.start_draft()
+	await _frames(3)
+	_ok(not Dock.is_focus(), "a later draft auto-opened after the first hint was seen")
+	chip = main.find_child("PanelChip", true, false) as Button
+	_ok(chip != null, "the collapsed draft has no decision chip")
+	if chip != null:
+		chip.pressed.emit()
+	viewport.size = Vector2i(640, 340)
+	main.call("_apply_layout")
+	await _frames(3)
+	var popover := Rect2(Vector2.ZERO, Vector2(viewport.size))
+	var draft := main.find_child("DraftView", true, false) as Control
+	_ok(Dock.is_focus() and draft != null, "the draft chip did not open the popover body")
+	var draft_scroll_rects: Array[Rect2] = []
+	var fixed_draft_rects: Array[Rect2] = []
+	if draft != null:
+		for node in draft.find_children("*", "Button", true, false):
+			var button := node as Button
+			if not button.visible:
+				continue
+			var rect := button.get_global_rect()
+			var ancestor := button.get_parent()
+			var scroll: ScrollContainer
+			while ancestor != null:
+				if ancestor is ScrollContainer:
+					scroll = ancestor as ScrollContainer
+					break
+				ancestor = ancestor.get_parent()
+			if scroll != null:
+				var scroll_rect := scroll.get_global_rect()
+				_ok(popover.encloses(scroll_rect), "draft list leaves the corner popover: %s" % scroll_rect)
+				if not draft_scroll_rects.has(scroll_rect):
+					draft_scroll_rects.append(scroll_rect)
+				continue
+			_ok(popover.encloses(rect), "draft button leaves the corner popover: %s" % rect)
+			for previous in fixed_draft_rects:
+				_ok(
+					not rect.intersects(previous),
+					"draft buttons overlap in the corner popover: %s and %s" % [rect, previous]
+				)
+			fixed_draft_rects.append(rect)
+	for scroll_rect in draft_scroll_rects:
+		for fixed_rect in fixed_draft_rects:
+			_ok(
+				not scroll_rect.intersects(fixed_rect),
+				"a draft list overlaps a fixed control in the corner popover"
+			)
+	var open_draft_chip := main.find_child("PanelChip", true, false) as Button
+	if open_draft_chip != null:
+		open_draft_chip.pressed.emit()
+	viewport.size = Vector2i(144, 144)
+	main.call("_apply_layout")
+	await _frames(3)
+	_ok(not Dock.is_focus() and main.find_child("DraftView", true, false) == null, "the draft chip did not return to the tile")
+
+	var settings := main.get_node("%SettingsButton") as Button
+	settings.pressed.emit()
+	_ok(Dock.is_focus() and (main.get_node("%SettingsPanel") as Control).visible, "the gear did not borrow the popover")
+	viewport.size = Vector2i(640, 340)
+	main.call("_apply_layout")
+	await _frames(2)
+	var now := Time.get_unix_time_from_system()
+	Session.time_scale = 1800.0
+	_ok(Session.confirm_draft("pip", "teapot", now, 1), "the corner check draft could not be confirmed")
+	await _frames(3)
+	_ok(not (main.get_node("%SettingsPanel") as Control).visible, "a phase change left corner settings open")
+	_ok(not Dock.is_focus(), "a phase change left the corner popover open")
+	viewport.size = Vector2i(144, 144)
+	main.call("_apply_layout")
+	await _frames(3)
+	var reveal_line := main.find_child("RevealLine", true, false) as Label
+	var reveal_clock := main.find_child("Clock", true, false) as Label
+	_ok(reveal_line != null, "the stage reveal tile has no numbers")
+	if reveal_line != null:
+		_ok(reveal_line.text.begins_with("Stage 1/"), "the tile reveal has no stage number: %s" % reveal_line.text)
+		_ok(reveal_line.text.contains("P") and not reveal_line.text.contains("pts"), "the tile reveal is not numbers-only: %s" % reveal_line.text)
+	_ok(reveal_clock != null and reveal_clock.text.begins_with("Clock "), "the tile reveal has no stage clock")
+	_ok(main.find_child("Reveal", true, false) == null, "the corner reveal instanced the scrolling stage view")
+	_ok(main.find_child("ProgressFill", true, false) != null, "the corner reveal has no progress fill")
+
+	Session.advance(now + 1.2)
+	await _frames(3)
+	_ok(Session.phase() == Championship.PHASE_SERVICE, "the corner check did not reach service")
+	_ok(not Dock.is_focus(), "service auto-opened the corner popover")
+	var service_chip := main.find_child("PanelChip", true, false) as Button
+	_ok(service_chip != null, "the service tile has no decision chip")
+	_ok(main.find_child("Clock", true, false) != null, "the service tile has no clock")
+	if service_chip != null:
+		service_chip.pressed.emit()
+	viewport.size = Vector2i(640, 340)
+	main.call("_apply_layout")
+	await _frames(3)
+	var service_root := main.find_child("ServiceRoot", true, false) as Control
+	_ok(service_root != null, "the service popover has no service body")
+	if service_root != null:
+		var service_view := service_root.get_parent() as Control
+		_ok(popover.encloses(service_view.get_global_rect()), "the service body leaves the corner popover")
+		var card_rects: Array[Rect2] = []
+		for node in service_view.find_children("*", "PanelContainer", true, false):
+			var card := node as Control
+			if not card.has_meta("card_id"):
+				continue
+			var rect := card.get_global_rect()
+			_ok(popover.encloses(rect), "a service card leaves the corner popover: %s" % rect)
+			for previous in card_rects:
+				_ok(not rect.intersects(previous), "service cards overlap in the corner popover")
+			card_rects.append(rect)
+		_ok(card_rects.size() == 3, "corner service cards %s" % card_rects.size())
+	Dock.set_panel_phase(true, false, Championship.PHASE_SERVICE)
+	Dock.set_panel_open(true)
+	Dock.set_panel_phase(true, false, Championship.PHASE_RECAP)
+	_ok(not Dock.is_panel_open() and not Dock.is_focus(), "a choice-to-choice phase change kept the popover open")
+	Dock.set_panel_phase(true, false, Session.phase())
+
+	Session.abandon()
+	await _frames(3)
 	_tree.root.remove_child(viewport)
 	viewport.free()
 	Dock.set_settings_open(false)
-	Dock.set_panel_phase(false)
+	Dock.set_panel_phase(false, false, Session.phase())
+	Dock._seen_panel_hint = seen_hint
+	Session.time_scale = 1.0
 	Dock.set_preset(preset)
 	Dock.set_edge(edge)
+	Dock.set_collapsed(collapsed)
 
 
 func _first_button(root: Node, text: String) -> Button:
@@ -440,7 +620,9 @@ func _check_reveal_audio_and_sleep() -> void:
 func _check_intro_once() -> void:
 	_reset_session()
 	var was_seen := Dock.has_seen_intro()
+	var was_collapsed := Dock.is_collapsed()
 	Dock._seen_intro = false
+	Dock.set_collapsed(true)
 	var main := MAIN_SCENE.instantiate() as Control
 	_tree.root.add_child(main)
 	await _frames(3)
@@ -448,15 +630,17 @@ func _check_intro_once() -> void:
 	_ok(Dock.has_seen_intro(), "the intro was not marked seen")
 	var intro := main.find_child("Intro", true, false) as Label
 	if intro != null:
-		_ok(intro.text.count("\n") == 2, "intro is not three lines: %s" % intro.text)
+		_ok(not intro.text.contains("\n"), "corner intro is not short: %s" % intro.text)
 	# Leaving idle and coming back must not show it again.
 	Session.start_draft()
 	await _frames(3)
 	Session.abandon()
 	await _frames(3)
 	_ok(main.find_child("Intro", true, false) == null, "the intro came back in the same run")
-	_ok(main.find_child("Roster", true, false) != null, "idle shows no animals")
+	_ok(main.find_child("Emblem", true, false) != null, "the idle tile has no emblem")
+	_ok(main.find_child("Roster", true, false) == null, "the idle tile shows a roster")
 	Dock._seen_intro = was_seen
+	Dock.set_collapsed(was_collapsed)
 	main.get_parent().remove_child(main)
 	main.free()
 	_reset_session()
@@ -469,10 +653,10 @@ func _check_accessibility() -> void:
 	var main := MAIN_SCENE.instantiate() as Control
 	_tree.root.add_child(main)
 	await _frames(3)
-	for node_name in ["SettingsButton", "PauseButton", "QuitButton", "Mute"]:
+	for node_name in ["SettingsButton", "FoldButton", "PauseButton", "QuitButton", "Mute"]:
 		var control := main.get_node("%" + node_name) as Control
 		_ok(control.accessibility_name != "", "%s has no accessibility name" % node_name)
-	for node_name in ["SettingsButton", "PauseButton", "QuitButton"]:
+	for node_name in ["SettingsButton", "FoldButton", "PauseButton", "QuitButton"]:
 		var control := main.get_node("%" + node_name) as Control
 		_ok(control.accessibility_description != "", "%s has no accessibility description" % node_name)
 

@@ -63,7 +63,7 @@ Catalogs (drivers, cars, stages, cards) are custom `Resource` classes saved as `
 - Ids are stable `snake_case` strings. Saves store ids, not resource paths, so a moved `.tres` does not break a file in `user://`.
 - Do not put design data in autoload dictionaries.
 - Runtime championship state is plain data owned by `Session`, serialized to `user://save.json`.
-- Window placement and window settings go to `user://window.cfg` via `ConfigFile`: screen, edge, height preset, always-on-top, content scale choice, `exclude_from_capture`, `seen_intro`.
+- Window placement and settings go to `user://window.cfg` via `ConfigFile`: screen, edge, height preset (`compact` or `cozy`), collapsed state, always-on-top, content scale choice, `exclude_from_capture`, `seen_intro`. Legacy `preset = "ticker"` migrates to compact + collapsed.
 - Never write into `res://` at runtime.
 
 [Data preferences](https://docs.godotengine.org/en/4.7/tutorials/best_practices/data_preferences.html) is still marked work-in-progress for 4.7. Use it as background. The local rule above wins where they differ: sim data is a `Resource` or a `RefCounted`, not a `Node`.

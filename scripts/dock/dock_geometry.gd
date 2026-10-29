@@ -2,8 +2,9 @@ class_name DockGeometry
 extends RefCounted
 ## Pure window geometry for the strip. No DisplayServer reads, so a headless check can run it.
 ##
-## Bottom edge: full usable width, height from the preset (or the focus height, which is the ticker's open panel).
+## Bottom edge: full usable width, height from the preset or focus height.
 ## Left edge: full usable height, width is the preset's long side (144 or 220). Focus height does not apply.
+## Collapsed: a preset-sized bottom-right tile, or a transient corner popover.
 ## Every pixel size is the design size times the content scale.
 
 const EDGE_BOTTOM := "bottom"
@@ -11,42 +12,46 @@ const EDGE_LEFT := "left"
 
 const PRESET_COMPACT := "compact"
 const PRESET_COZY := "cozy"
-const PRESET_TICKER := "ticker"
 const SIZE_COMPACT := 144
 const SIZE_COZY := 220
-const SIZE_TICKER := 64
 const SIZE_FOCUS := 340
+const SIZE_POPOVER := Vector2i(640, 340)
 
 const SCALE_MATCH := "match"
 const SCALE_STEPS: Array[float] = [1.0, 1.25, 1.5, 2.0]
 
 
-## Side length used on the left edge. A ticker is a bottom-edge bar only, so a left column treats it as compact.
+## Side length used on the left edge and the collapsed tile.
 static func preset_size(preset: String) -> int:
-	if preset == PRESET_COMPACT or preset == PRESET_TICKER:
+	if preset == PRESET_COMPACT:
 		return SIZE_COMPACT
 	return SIZE_COZY
 
 
-## Resting bar height on the bottom edge.
-static func bar_height(preset: String) -> int:
-	if preset == PRESET_TICKER:
-		return SIZE_TICKER
-	return preset_size(preset)
-
-
-## True when the preset is a slim bar that opens a panel above itself (bottom edge only).
-static func is_ticker(edge: String, preset: String) -> bool:
-	return edge == EDGE_BOTTOM and preset == PRESET_TICKER
+## Convert the removed ticker preset and validate the current preset names.
+static func migrate_preset(stored: String) -> Dictionary:
+	if stored == "ticker":
+		return {"preset": PRESET_COMPACT, "collapsed": true}
+	if stored == PRESET_COMPACT or stored == PRESET_COZY:
+		return {"preset": stored, "collapsed": false}
+	return {"preset": PRESET_COZY, "collapsed": false}
 
 
 ## The strip's rectangle in desktop pixels.
-static func window_rect(usable: Rect2i, edge: String, preset: String, focus: bool, scale: float) -> Rect2i:
+static func window_rect(
+	usable: Rect2i, edge: String, preset: String, focus: bool, scale: float, collapsed := false
+) -> Rect2i:
 	var factor := maxf(scale, 0.1)
+	if collapsed:
+		var base_size := SIZE_POPOVER if focus else Vector2i.ONE * preset_size(preset)
+		var width := mini(maxi(1, roundi(float(base_size.x) * factor)), maxi(usable.size.x, 1))
+		var height := mini(maxi(1, roundi(float(base_size.y) * factor)), maxi(usable.size.y, 1))
+		var size := Vector2i(width, height)
+		return Rect2i(usable.end - size, size)
 	if edge == EDGE_LEFT:
 		var width := mini(maxi(1, roundi(float(preset_size(preset)) * factor)), maxi(usable.size.x, 1))
 		return Rect2i(usable.position, Vector2i(width, maxi(usable.size.y, 1)))
-	var base := SIZE_FOCUS if focus else bar_height(preset)
+	var base := SIZE_FOCUS if focus else preset_size(preset)
 	var height := mini(maxi(1, roundi(float(base) * factor)), maxi(usable.size.y, 1))
 	return Rect2i(
 		Vector2i(usable.position.x, usable.position.y + usable.size.y - height),

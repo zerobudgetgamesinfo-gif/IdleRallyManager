@@ -2,14 +2,12 @@ extends Node
 ## Window flags, edge placement, hit polygon, and user://window.cfg.
 ##
 ## Section "window" stores screen (int, -1 until a screen is chosen), preset
-## ("compact", "cozy" or "ticker"), always_on_top (bool), edge ("bottom" or "left"),
+## ("compact" or "cozy"), collapsed (bool), always_on_top (bool), edge ("bottom" or "left"),
 ## scale ("1.0", "1.25", "1.5", "2.0", or "match"), exclude_from_capture (bool),
-## seen_intro (bool, the first-launch copy), and seen_panel_hint (bool, the one-time auto-open of the ticker panel). The file stores the preset name,
-## never a pixel size. Geometry comes from DockGeometry: on the bottom edge the
-## height is the preset times the content scale, or the focus height while a
-## choice phase is open; on the left edge the width is the preset's long side
-## times the content scale and focus height does not apply. Focus height is
-## runtime-only (driven by Session phase); it is never written to the cfg.
+## seen_intro (bool, the first-launch copy), and seen_panel_hint (bool, the one-time auto-open of the corner popover).
+## The file stores the preset name, never a pixel size. Geometry comes from DockGeometry: expanded
+## bars use the preset size or transient focus height; the collapsed tile is bottom-right and uses
+## the preset size or the transient corner popover. Focus is never written to the cfg.
 ##
 ## X11 and Windows do not report a display scale reliably, so the scale is a manual
 ## choice. "match" reads DisplayServer.screen_get_scale and is only offered on
@@ -26,13 +24,14 @@ extends Node
 
 ## Fired after the strip moves to another edge. The strip scene rebuilds its layout.
 signal edge_changed
+## Fired after the strip folds or unfolds. The strip scene rebuilds its layout.
+signal collapsed_changed
 
 const CONFIG_PATH := "user://window.cfg"
 const SECTION := "window"
 
 const PRESET_COMPACT := DockGeometry.PRESET_COMPACT
 const PRESET_COZY := DockGeometry.PRESET_COZY
-const PRESET_TICKER := DockGeometry.PRESET_TICKER
 const HEIGHT_COMPACT := DockGeometry.SIZE_COMPACT
 const HEIGHT_COZY := DockGeometry.SIZE_COZY
 const HEIGHT_FOCUS := DockGeometry.SIZE_FOCUS
@@ -50,12 +49,14 @@ const DRIFT_PX := 2
 var _screen := -1
 var _preset := PRESET_COZY
 var _edge := EDGE_BOTTOM
+var _collapsed := false
 var _scale_step := 1.0
 var _scale_match := false
 var _exclude_from_capture := false
 var _seen_intro := false
 var _focus := false
 var _panel_phase := false
+var _panel_phase_id := ""
 var _panel_open := false
 var _settings_open := false
 var _seen_panel_hint := false
@@ -127,7 +128,7 @@ func get_preset() -> String:
 
 
 func set_preset(preset: String) -> void:
-	if preset != PRESET_COMPACT and preset != PRESET_COZY and preset != PRESET_TICKER:
+	if preset != PRESET_COMPACT and preset != PRESET_COZY:
 		return
 	if preset == _preset:
 		return
@@ -221,9 +222,20 @@ func is_focus() -> bool:
 	return _focus
 
 
-## True for the slim bar that opens a panel on demand.
-func is_ticker() -> bool:
-	return DockGeometry.is_ticker(_edge, _preset)
+func is_collapsed() -> bool:
+	return _collapsed
+
+
+func set_collapsed(collapsed: bool) -> void:
+	if collapsed == _collapsed:
+		return
+	_collapsed = collapsed
+	_panel_open = false
+	_settings_open = false
+	_sync_focus()
+	_reapply_placement()
+	_save_config()
+	collapsed_changed.emit()
 
 
 func is_panel_open() -> bool:
@@ -231,21 +243,26 @@ func is_panel_open() -> bool:
 
 
 ## The phase needs a choice or a read (draft, service, recap, finished). Called by the HUD on every
-## phase change. Compact and cozy grow to the focus height at once; the ticker stays slim behind a
-## chip until the player opens the panel. The first draft ever opens it once as a hint.
-func set_panel_phase(needed: bool, first_hint := false) -> void:
+## phase change. Expanded bars grow to focus height; the collapsed tile opens only on demand. The
+## first draft ever opens the collapsed popover once as a hint.
+func set_panel_phase(needed: bool, first_hint: bool = false, phase_id: String = "") -> void:
 	var changed := needed != _panel_phase
+	if not phase_id.is_empty():
+		changed = changed or phase_id != _panel_phase_id
+		_panel_phase_id = phase_id
 	_panel_phase = needed
 	if changed:
 		_panel_open = false
-	if needed and first_hint and not _seen_panel_hint and is_ticker():
+		if _collapsed:
+			_settings_open = false
+	if needed and first_hint and not _seen_panel_hint and is_collapsed():
 		_seen_panel_hint = true
 		_panel_open = true
 		_save_config()
 	_sync_focus()
 
 
-## The ticker's open/closed toggle. Ignored when the strip is not a ticker.
+## The collapsed tile's open/closed popover toggle.
 func set_panel_open(open: bool) -> void:
 	if open == _panel_open:
 		return
@@ -253,7 +270,7 @@ func set_panel_open(open: bool) -> void:
 	_sync_focus()
 
 
-## The settings cluster is taller than the ticker, so it borrows the open panel.
+## The settings cluster borrows the corner popover when the strip is collapsed.
 func set_settings_open(open: bool) -> void:
 	if open == _settings_open:
 		return
@@ -261,11 +278,11 @@ func set_settings_open(open: bool) -> void:
 	_sync_focus()
 
 
-## Transient taller strip. Not saved. Driven only by the phase, the panel toggle and settings.
+## Transient focus geometry. Not saved. Driven by the phase, the popover toggle and settings.
 func _sync_focus() -> void:
-	var wanted := _panel_phase and (not is_ticker() or _panel_open)
-	if is_ticker() and _settings_open:
-		wanted = true
+	var wanted := _panel_phase
+	if _collapsed:
+		wanted = (_panel_phase and _panel_open) or _settings_open
 	if wanted == _focus:
 		return
 	_focus = wanted
@@ -371,7 +388,7 @@ func _place_on_screen(screen: int) -> bool:
 	if usable.size.x < 1 or usable.size.y < 1:
 		return false
 	var scale := _content_scale(screen)
-	var rect := DockGeometry.window_rect(usable, _edge, _preset, _focus, scale)
+	var rect := DockGeometry.window_rect(usable, _edge, _preset, _focus, scale, _collapsed)
 	var size := rect.size
 	var position := rect.position
 	var window := get_window()
@@ -430,7 +447,9 @@ func _snap_if_dock_drifted() -> void:
 	if window.mode == Window.MODE_MINIMIZED:
 		return
 	var usable := DisplayServer.screen_get_usable_rect(_screen)
-	var expected := DockGeometry.window_rect(usable, _edge, _preset, _focus, _content_scale(_screen))
+	var expected := DockGeometry.window_rect(
+		usable, _edge, _preset, _focus, _content_scale(_screen), _collapsed
+	)
 	var expected_size := expected.size
 	var expected_pos := expected.position
 	var size_delta := (window.size - expected_size).abs()
@@ -494,9 +513,13 @@ func _load_config() -> void:
 	var screen: Variant = config.get_value(SECTION, "screen", -1)
 	if screen is int or screen is float:
 		_screen = int(screen)
-	var preset := str(config.get_value(SECTION, "preset", PRESET_COZY))
-	if preset == PRESET_COMPACT or preset == PRESET_COZY or preset == PRESET_TICKER:
-		_preset = preset
+	var stored_preset := str(config.get_value(SECTION, "preset", PRESET_COZY))
+	var migrated := DockGeometry.migrate_preset(stored_preset)
+	_preset = str(migrated.get("preset", PRESET_COZY))
+	var collapsed: Variant = config.get_value(SECTION, "collapsed", migrated.get("collapsed", false))
+	_collapsed = bool(migrated.get("collapsed", false))
+	if stored_preset == _preset and collapsed is bool:
+		_collapsed = collapsed
 	var always: Variant = config.get_value(SECTION, "always_on_top", true)
 	if always is bool:
 		_always_on_top = always
@@ -527,6 +550,7 @@ func _save_config() -> void:
 	config.load(CONFIG_PATH)
 	config.set_value(SECTION, "screen", _screen)
 	config.set_value(SECTION, "preset", _preset)
+	config.set_value(SECTION, "collapsed", _collapsed)
 	config.set_value(SECTION, "always_on_top", _always_on_top)
 	config.set_value(SECTION, "edge", _edge)
 	config.set_value(SECTION, "scale", get_scale_choice())
@@ -554,8 +578,8 @@ func _probe_platform() -> void:
 	print("Dock: unfocusable wanted=true read_back=%s" % unfocusable)
 	print("Dock: passthrough polygon points=%s" % points)
 	print(
-		"Dock: screen=%s edge=%s preset=%s focus=%s scale=%.2f pos=%s size=%s usable=%s"
-		% [_screen, _edge, _preset, _focus, scale, window.position, window.size, _last_usable]
+		"Dock: screen=%s edge=%s preset=%s collapsed=%s focus=%s scale=%.2f pos=%s size=%s usable=%s"
+		% [_screen, _edge, _preset, _collapsed, _focus, scale, window.position, window.size, _last_usable]
 	)
 	for index in DisplayServer.get_screen_count():
 		print(

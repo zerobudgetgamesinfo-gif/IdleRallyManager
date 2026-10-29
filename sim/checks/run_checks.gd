@@ -21,6 +21,7 @@ var _sessions: Array[Node] = []
 
 
 func _init() -> void:
+	_check_dock_geometry()
 	_check_catalog()
 	_check_draft()
 	_check_solver()
@@ -66,6 +67,54 @@ func _expect(condition: bool, message: String) -> void:
 		return
 	_failures.append(message)
 	push_error(message)
+
+
+func _check_dock_geometry() -> void:
+	var usable := Rect2i(0, 0, 1920, 1040)
+	var compact := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_COMPACT, false, 1.0, true
+	)
+	_expect(compact == Rect2i(1776, 896, 144, 144), "collapsed compact rect %s" % compact)
+	var cozy := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_COZY, false, 1.0, true
+	)
+	_expect(cozy == Rect2i(1700, 820, 220, 220), "collapsed cozy rect %s" % cozy)
+	var left := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_COMPACT, false, 1.0, true
+	)
+	_expect(left == compact, "collapsed geometry depends on edge: %s" % left)
+	var popover := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_COMPACT, true, 1.0, true
+	)
+	_expect(popover == Rect2i(1280, 700, 640, 340), "collapsed popover rect %s" % popover)
+	var scaled := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_COMPACT, false, 1.5, true
+	)
+	_expect(scaled.size == Vector2i(216, 216), "collapsed scale 1.5 size %s" % scaled.size)
+	var small := Rect2i(50, 40, 100, 80)
+	var clamped := DockGeometry.window_rect(
+		small, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_COZY, true, 2.0, true
+	)
+	_expect(clamped == small, "collapsed popover was not clamped %s" % clamped)
+	var bottom := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_BOTTOM, DockGeometry.PRESET_COMPACT, false, 1.0
+	)
+	_expect(bottom == Rect2i(0, 896, 1920, 144), "expanded compact bottom rect %s" % bottom)
+	var side := DockGeometry.window_rect(
+		usable, DockGeometry.EDGE_LEFT, DockGeometry.PRESET_COMPACT, false, 1.0
+	)
+	_expect(side == Rect2i(0, 0, 144, 1040), "expanded compact left rect %s" % side)
+	var migrated := DockGeometry.migrate_preset("ticker")
+	_expect(
+		migrated.get("preset") == DockGeometry.PRESET_COMPACT and migrated.get("collapsed") == true,
+		"ticker preset migration %s" % migrated
+	)
+	var cozy_migration := DockGeometry.migrate_preset("cozy")
+	_expect(
+		cozy_migration.get("preset") == DockGeometry.PRESET_COZY
+		and cozy_migration.get("collapsed") == false,
+		"cozy preset migration %s" % cozy_migration
+	)
 
 
 func _session(tag: String):

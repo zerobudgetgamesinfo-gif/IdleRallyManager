@@ -262,9 +262,11 @@ The field is solved locally. Nothing about AI requires a second process.
 ### 9.1 Window
 
 - Default edge: **bottom** of the usable screen rect (`DisplayServer.screen_get_usable_rect`), so the strip sits above the taskbar.
-- Width: the usable width of the current screen.
-- Height presets, at content scale 1: **compact 144 px**, **cozy 220 px**. Default is cozy. The save stores the preset name, and the pixel height is computed from the content scale.
-- **Focus height** (340 px at content scale 1) is a transient taller strip used only while a choice is open: draft, service, recap, and finished. Idle and stage reveal keep the saved preset. Focus is not written to `window.cfg`; a relaunch restores it from the championship phase.
+- Expanded bottom edge: the usable width of the current screen. Expanded left edge: the usable height of the current screen.
+- Height presets, at content scale 1: **compact 144 px**, **cozy 220 px**. Default is cozy. The save stores the preset name, and the pixel size is computed from the content scale.
+- A fold button beside the settings gear toggles a saved **collapsed** state. The collapsed tile is anchored to the bottom-right of the usable screen rect, is square, and uses the selected preset size (144×144 compact or 220×220 cozy, times content scale). The edge is retained for unfolding but has no effect while collapsed.
+- **Focus height** (340 px at content scale 1) is transient. An expanded bottom strip uses it while a choice is open: draft, service, recap, and finished. Idle and stage reveal keep the saved preset. A collapsed tile instead opens a 640×340 (times content scale, clamped) popover anchored to the bottom-right when the chip or gear is pressed. The popover is transient, closes on phase change, and is not saved. The first draft opens it once as a hint.
+- The former `ticker` preset is removed. A legacy `preset = "ticker"` in `window.cfg` migrates to `compact` with `collapsed = true`.
 - Flags: borderless, transparent viewport, per-pixel transparency, always on top, no focus. See Godot's [Creating applications](https://docs.godotengine.org/en/4.7/tutorials/ui/creating_applications.html) overlay section.
 - The window rectangle is the strip only. Clicks on the rest of the desktop never hit this process.
 - Inside the strip, an 8 px transparent margin is excluded from `mouse_passthrough_polygon`, so rounded corners do not eat clicks meant for the app behind. On Windows the area outside that polygon is also clipped from drawing; keep art inside the polygon.
@@ -277,22 +279,22 @@ The field is solved locally. Nothing about AI requires a second process.
 
 | Phase | Picture | Controls |
 | --- | --- | --- |
-| Idle | The animals in the service park, no car on track | Start championship |
-| Draft | Driver and car columns, budget | Pick, confirm |
-| Stage reveal | Side-scrolling stage, player car, rival ticks | Standings peek, pause, settings |
-| Service | Park, three cards, timer | Pick a card, standings, pause, settings |
-| Recap | List of stages resolved while away | Dismiss |
-| Finished | Final table | Dismiss to idle, start again |
+| Idle | Expanded: animals in the service park, no car on track. Collapsed: emblem and Start (with a short intro line on first launch). | Start championship |
+| Draft | Expanded/popover: driver and car columns, budget. Collapsed tile: phase title and decision chip. | Pick, confirm; chip opens/closes the popover |
+| Stage reveal | Expanded: side-scrolling stage, player car, rival ticks. Collapsed: stage, position, gap, clock, and a thin progress bar; no chip. | Standings peek, pause, settings |
+| Service | Expanded/popover: park, three cards, timer. Collapsed tile: phase title, decision chip, and clock. | Pick a card, standings, pause, settings |
+| Recap | Expanded/popover: list of stages resolved while away. Collapsed tile: phase title and decision chip. | Dismiss |
+| Finished | Expanded/popover: final table. Collapsed tile: phase title and decision chip. | Dismiss to idle, start again |
 
 The HUD during a reveal is one line: position, gap to the car ahead, fictional stage clock, championship points. The decision chip is absent during a reveal.
 
-When draft, service, recap, or finished opens, the strip snaps to focus height so the controls fit. Leaving those phases returns to the saved compact or cozy height. Service cards are a row of three with full labels; a pick highlights the card and can be changed until the timer ends. Remaining service time is shown in the strip header.
+When draft, service, recap, or finished opens, an expanded bottom strip snaps to focus height so the controls fit; leaving those phases returns to the saved compact or cozy height. In collapsed mode the tile stays small until the chip or gear opens the corner popover. The popover shows the phase body above a bottom row with the title, service clock when relevant, and chip to close it. Service cards are a row of three with full labels; a pick highlights the card and can be changed until the timer ends. Remaining service time is shown in the strip header or popover row.
 
 Attention while a choice is open: the decision chip's modulate pulses over about two seconds. There is no OS notification in v1. Tray icons are Windows and macOS only in Godot, and the in-strip pulse is the single cue on every platform.
 
 ### 9.3 Settings in the strip
 
-A single cluster opens inside the strip (not a second OS window):
+A single cluster opens inside the expanded strip, or in the collapsed tile's corner popover (not a second OS window). The fold button sits beside the gear and unfolds the tile back to the saved edge and preset. The Height group offers only Compact and Cozy:
 
 - Pause
 - Height preset
@@ -373,7 +375,7 @@ User files:
 
 | Path | Contents |
 | --- | --- |
-| `user://window.cfg` | Screen, edge, height preset, always-on-top, content scale choice, exclude-from-capture, seen-intro. `ConfigFile`. |
+| `user://window.cfg` | Screen, edge, height preset, collapsed state, always-on-top, content scale choice, exclude-from-capture, seen-intro. Legacy `ticker` presets migrate to compact + collapsed. `ConfigFile`. |
 | `user://save.json` | Championship, settings, version. |
 
 The custom user directory name is `idle-rally-manager`.
@@ -455,7 +457,7 @@ Load rules:
 - `version` newer than the build: do not overwrite the file. Show a one-line error in the strip and stay idle.
 - Any other older `version`: copy the file to `user://save.backup.json` and start idle.
 - Write the save on every phase change, every card pick, pause, and `NOTIFICATION_WM_CLOSE_REQUEST`.
-- Window config is saved on move, preset change, and quit. It is not inside `save.json`, so deleting a championship does not forget the monitor.
+- Window config is saved on move, edge/preset/collapse change, and quit. It is not inside `save.json`, so deleting a championship does not forget the monitor.
 
 ## 15. Delivery phases
 

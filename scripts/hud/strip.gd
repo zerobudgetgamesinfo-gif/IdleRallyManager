@@ -15,9 +15,10 @@ const FONT_SIZE_SIDE := 12
 const SETTINGS_CLEARANCE := 104.0
 const SIDE_STAGE_HEIGHT := 96.0
 const SIDE_ROW_PORTRAIT := 22.0
-const TICKER_ROW_HEIGHT := 34.0
-const TICKER_PORTRAIT := 28.0
+const CORNER_ROW_HEIGHT := 34.0
+const CORNER_CHROME_CLEARANCE := 176.0
 const POPOVER_FADE_SEC := 0.2
+const CHIP_PULSE_SEC := 1.0
 
 const INTRO_LINES: PackedStringArray = [
 	"A rally sits on your desktop",
@@ -43,6 +44,7 @@ func _ready() -> void:
 	Session.recap_ready.connect(_on_recap_ready)
 	Session.championship_finished.connect(_queue_rebuild)
 	Dock.edge_changed.connect(_queue_rebuild)
+	Dock.collapsed_changed.connect(_queue_rebuild)
 	resized.connect(_on_resized)
 	_timer = Timer.new()
 	_timer.one_shot = true
@@ -88,6 +90,8 @@ func skip_ahead() -> void:
 
 
 func _on_resized() -> void:
+	if Dock.is_collapsed():
+		_queue_rebuild()
 	if _host == null or Dock.is_side():
 		return
 	var peek := _host.get_node_or_null("Standings") as Control
@@ -143,8 +147,8 @@ func _rebuild_now() -> void:
 	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if Session.phase() != Championship.PHASE_IDLE:
 		_intro_shown = false
-	if Dock.is_ticker():
-		_build_ticker(host)
+	if Dock.is_collapsed():
+		_build_corner(host)
 	else:
 		_build_full(host)
 	_host = host
@@ -168,44 +172,123 @@ func _build_full(host: VBoxContainer) -> void:
 		host.add_child(_build_standings_peek())
 
 
-## Ticker: one slim row at the bottom. Draft, service, recap and finished keep their body behind a chip
-## and show it above the row only while the panel is open.
-func _build_ticker(host: VBoxContainer) -> void:
+## The tile keeps its phase cue small; opening the chip or settings shows the phase body in a popover.
+func _build_corner(host: VBoxContainer) -> void:
 	var phase := Session.phase()
-	var open := _is_panel_phase(phase) and Dock.is_panel_open()
-	if open:
+	if Dock.is_focus():
 		var body := _build_body()
 		body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		host.add_child(body)
+		host.add_child(_build_corner_row(phase))
 		_fade_in(host)
 	else:
-		var gap := Control.new()
-		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		host.add_child(gap)
-	host.add_child(_build_ticker_row(phase, open))
+		var tile := _build_corner_tile(phase)
+		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tile.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		host.add_child(tile)
 
 
-func _build_ticker_row(phase: String, open: bool) -> Control:
-	var row := HBoxContainer.new()
-	row.name = "Ticker"
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.custom_minimum_size = Vector2(0, TICKER_ROW_HEIGHT)
-	row.add_theme_constant_override("separation", 8)
-	if phase == Championship.PHASE_STAGE_REVEAL:
-		var reveal := _build_reveal()
-		reveal.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(reveal)
-	elif phase == Championship.PHASE_IDLE:
-		_fill_idle_ticker(row)
+func _build_corner_tile(phase: String) -> Control:
+	var tile := VBoxContainer.new()
+	tile.name = "CornerTile"
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.alignment = BoxContainer.ALIGNMENT_CENTER
+	tile.add_theme_constant_override("separation", 4)
+	if phase == Championship.PHASE_IDLE:
+		var emblem := TextureRect.new()
+		emblem.name = "Emblem"
+		emblem.texture = EMBLEM
+		emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		emblem.custom_minimum_size = Vector2(36.0 * 72.0 / 44.0, 36.0)
+		emblem.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		tile.add_child(emblem)
+		var show_intro := _intro_shown or not Dock.has_seen_intro()
+		if show_intro:
+			_intro_shown = true
+			Dock.mark_intro_seen()
+			var intro := _label("Rally is ready")
+			intro.name = "Intro"
+			intro.add_theme_font_size_override("font_size", FONT_SIZE_SIDE)
+			intro.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			intro.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			tile.add_child(intro)
+		var start := _button("Start")
+		start.custom_minimum_size = Vector2(80.0, 28.0)
+		start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		start.accessibility_name = "Start championship"
+		start.accessibility_description = "Opens the draft: pick one driver and one car."
+		start.pressed.connect(_on_start_pressed)
+		tile.add_child(start)
+	elif phase == Championship.PHASE_STAGE_REVEAL:
+		tile.add_child(_build_corner_reveal())
 	else:
-		var title := _label(_phase_heading())
+		var title := _label(_corner_phase_title(phase))
 		title.theme_type_variation = &"TitleLabel"
 		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		title.clip_text = true
-		row.add_child(title)
+		tile.add_child(title)
+		if phase == Championship.PHASE_SERVICE:
+			_clock_label = _label(_clock_text())
+			_clock_label.name = "Clock"
+			_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tile.add_child(_clock_label)
+		if _is_panel_phase(phase):
+			var chip := _panel_chip(phase, false, true)
+			chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			tile.add_child(chip)
+	return tile
+
+
+func _build_corner_reveal() -> Control:
+	var layer := Control.new()
+	layer.name = "CornerReveal"
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.custom_minimum_size = Vector2(0.0, 72.0)
+	var stack := VBoxContainer.new()
+	stack.name = "RevealNumbers"
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stack.offset_bottom = -6.0
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 2)
+	_reveal_label = _label(_corner_reveal_line())
+	_reveal_label.name = "RevealLine"
+	_reveal_label.add_theme_font_size_override("font_size", FONT_SIZE_SIDE)
+	_reveal_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_reveal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reveal_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(_reveal_label)
+	_clock_label = _label(_corner_reveal_clock())
+	_clock_label.name = "Clock"
+	_clock_label.add_theme_font_size_override("font_size", FONT_SIZE_SIDE)
+	_clock_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(_clock_label)
+	layer.add_child(stack)
+	var track := _progress_track()
+	track.custom_minimum_size = Vector2(0.0, 3.0)
+	layer.add_child(track)
+	return layer
+
+
+func _build_corner_row(phase: String) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "CornerRow"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.custom_minimum_size = Vector2(0, CORNER_ROW_HEIGHT)
+	row.add_theme_constant_override("separation", 8)
+	var title := _label(_phase_heading())
+	title.theme_type_variation = &"TitleLabel"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.clip_text = true
+	row.add_child(title)
 	if phase == Championship.PHASE_STAGE_REVEAL or phase == Championship.PHASE_SERVICE:
 		_clock_label = _label(_clock_text())
 		_clock_label.name = "Clock"
@@ -213,85 +296,31 @@ func _build_ticker_row(phase: String, open: bool) -> Control:
 		_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(_clock_label)
 	if _is_panel_phase(phase):
-		row.add_child(_panel_chip(phase, open))
+		row.add_child(_panel_chip(phase, Dock.is_panel_open()))
 	var clearance := Control.new()
 	clearance.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clearance.custom_minimum_size = Vector2(SETTINGS_CLEARANCE, 0)
+	clearance.custom_minimum_size = Vector2(CORNER_CHROME_CLEARANCE, 0)
 	row.add_child(clearance)
 	return row
 
 
-## Emblem and wordmark. The wordmark is a Label in the title font, so it follows the theme.
-func _title_lockup(font_size: int, emblem_height: float) -> Control:
-	var lockup := HBoxContainer.new()
-	lockup.name = "Title"
-	lockup.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lockup.add_theme_constant_override("separation", 8)
-	var emblem := TextureRect.new()
-	emblem.texture = EMBLEM
-	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	emblem.custom_minimum_size = Vector2(emblem_height * 72.0 / 44.0, emblem_height)
-	emblem.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	lockup.add_child(emblem)
-	var label := _label("Idle Rally Manager")
-	label.theme_type_variation = &"TitleLabel"
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", Palette.AMBER_LIGHT)
-	label.add_theme_constant_override("outline_size", 4)
-	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	label.clip_text = true
-	lockup.add_child(label)
-	return lockup
-
-
-func _fill_idle_ticker(row: HBoxContainer) -> void:
-	var show_intro := _intro_shown or not Dock.has_seen_intro()
-	if show_intro:
-		_intro_shown = true
-		Dock.mark_intro_seen()
-	var title: Control
-	if show_intro:
-		var intro := _label("  ·  ".join(INTRO_LINES))
-		intro.name = "Intro"
-		intro.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		intro.clip_text = true
-		title = intro
-	else:
-		title = _title_lockup(18, 28.0)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(title)
-	var start := _button("Start championship")
-	start.custom_minimum_size = Vector2(160, 0)
-	start.accessibility_name = "Start championship"
-	start.accessibility_description = "Opens the draft: pick one driver and one car."
-	start.pressed.connect(_on_start_pressed)
-	row.add_child(start)
-	var roster := HBoxContainer.new()
-	roster.name = "Roster"
-	roster.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	roster.add_theme_constant_override("separation", 3)
-	for driver in Session.CATALOG.drivers:
-		if driver == null or driver.portrait == null or driver.unlock_reputation > 0:
-			continue
-		roster.add_child(_portrait_rect(driver.portrait, TICKER_PORTRAIT))
-	row.add_child(roster)
-
-
-func _panel_chip(phase: String, open: bool) -> Button:
+func _panel_chip(phase: String, open: bool, compact := false) -> Button:
 	var chip := _button("Close ▾" if open else _chip_text(phase))
 	chip.name = "PanelChip"
-	chip.custom_minimum_size = Vector2(120, 0)
+	chip.custom_minimum_size = Vector2(0 if compact else 120, 0)
 	if not open:
 		var accent := Style.raised(Palette.AMBER_DEEP, 8, Palette.AMBER_LIGHT, 3)
-		accent.content_margin_left = 10
-		accent.content_margin_right = 10
+		accent.content_margin_left = 6 if compact else 10
+		accent.content_margin_right = 6 if compact else 10
 		for state in ["normal", "hover", "pressed", "hover_pressed"]:
 			chip.add_theme_stylebox_override(state, accent)
 	chip.accessibility_name = "Close panel" if open else _chip_text(phase)
-	chip.accessibility_description = "Opens or closes the panel above the ticker."
+	chip.accessibility_description = "Opens or closes the corner popover."
 	chip.pressed.connect(_on_chip_pressed)
+	var pulse := chip.create_tween()
+	pulse.set_loops()
+	pulse.tween_property(chip, "modulate", Color(1, 1, 1, 0.55), CHIP_PULSE_SEC)
+	pulse.tween_property(chip, "modulate", Color.WHITE, CHIP_PULSE_SEC)
 	return chip
 
 
@@ -334,7 +363,8 @@ func _sync_dock_focus() -> void:
 		or phase == Championship.PHASE_SERVICE
 		or phase == Championship.PHASE_RECAP
 		or phase == Championship.PHASE_FINISHED,
-		phase == Championship.PHASE_DRAFT
+		phase == Championship.PHASE_DRAFT,
+		phase
 	)
 
 
@@ -450,6 +480,31 @@ func _build_idle() -> Control:
 	return box
 
 
+## Emblem and wordmark. The wordmark is a Label in the title font, so it follows the theme.
+func _title_lockup(font_size: int, emblem_height: float) -> Control:
+	var lockup := HBoxContainer.new()
+	lockup.name = "Title"
+	lockup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lockup.add_theme_constant_override("separation", 8)
+	var emblem := TextureRect.new()
+	emblem.texture = EMBLEM
+	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	emblem.custom_minimum_size = Vector2(emblem_height * 72.0 / 44.0, emblem_height)
+	emblem.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lockup.add_child(emblem)
+	var label := _label("Idle Rally Manager")
+	label.theme_type_variation = &"TitleLabel"
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", Palette.AMBER_LIGHT)
+	label.add_theme_constant_override("outline_size", 4)
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.clip_text = true
+	lockup.add_child(label)
+	return lockup
+
+
 ## The starter drivers, round portraits only. Transparent corners stay inside the strip.
 func _idle_roster(wrap: bool) -> Control:
 	var row: Container = HFlowContainer.new() if wrap else HBoxContainer.new()
@@ -488,7 +543,7 @@ func _build_reveal() -> Control:
 	var layer := Control.new()
 	layer.name = "Reveal"
 	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.custom_minimum_size = Vector2(0, 28 if Dock.is_ticker() else 48)
+	layer.custom_minimum_size = Vector2(0, 48)
 	var view := StageViewScene.instantiate() as StageView
 	view.clock = Callable(self, "now_unix")
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -734,6 +789,21 @@ func _scroll() -> ScrollContainer:
 	return scroll
 
 
+func _corner_phase_title(phase: String) -> String:
+	match phase:
+		Championship.PHASE_IDLE:
+			return "Idle"
+		Championship.PHASE_DRAFT:
+			return "Draft"
+		Championship.PHASE_SERVICE:
+			return "Service"
+		Championship.PHASE_RECAP:
+			return "Recap"
+		Championship.PHASE_FINISHED:
+			return "Finished"
+	return phase
+
+
 func _phase_heading() -> String:
 	var champ := Session.championship
 	var total := Session.CATALOG.stage_order.size()
@@ -759,11 +829,48 @@ func _phase_heading() -> String:
 ## Position and gap follow the sector interpolation. At f = 1 they match the solved order.
 ## Points count committed stages only; the open stage's points land when the reveal ends.
 func _reveal_line() -> String:
+	var data := _reveal_data()
+	if int(data.get("position", 0)) <= 0:
+		return "Result pending"
+	return "P%d  %s  %s  %d pts" % [
+		int(data.get("position", 0)),
+		str(data.get("gap", "lead")),
+		str(data.get("clock", "0:00")),
+		int(data.get("points", 0)),
+	]
+
+
+func _corner_reveal_line() -> String:
+	var data := _reveal_data()
+	var stage_text := "Stage %d/%d" % [int(data.get("stage", 1)), int(data.get("total", 0))]
+	if int(data.get("position", 0)) <= 0:
+		return "%s\nResult pending" % stage_text
+	return "%s\nP%d  %s" % [
+		stage_text,
+		int(data.get("position", 0)),
+		str(data.get("gap", "lead")),
+	]
+
+
+func _corner_reveal_clock() -> String:
+	return "Clock %s" % str(_reveal_data().get("clock", "0:00"))
+
+
+func _reveal_data() -> Dictionary:
+	var champ := Session.championship
+	var stage := 1 if champ == null else champ.stage_index + 1
+	var data := {
+		"stage": stage,
+		"total": Session.CATALOG.stage_order.size(),
+		"position": 0,
+		"gap": "lead",
+		"clock": "0:00",
+		"points": _player_points(),
+	}
 	var rows := _playback_rows()
 	if rows.is_empty():
-		return "Result pending"
-	var fraction := _reveal_fraction()
-	var ranked := RevealPlayback.sample(rows, fraction)
+		return data
+	var ranked := RevealPlayback.sample(rows, _reveal_fraction())
 	var player_pos := 0
 	var player_time := 0.0
 	var player_finish := 0.0
@@ -779,12 +886,14 @@ func _reveal_line() -> String:
 			break
 		ahead_time = float(row.get("time", 0.0))
 	if player_pos <= 0:
-		return "Result pending"
+		return data
 	var gap := "lead"
 	if player_pos > 1:
 		gap = "+%.1fs" % (player_time - ahead_time)
-	var clock := _format_mmss(player_finish * fraction)
-	return "P%d  %s  %s  %d pts" % [player_pos, gap, clock, _player_points()]
+	data["position"] = player_pos
+	data["gap"] = gap
+	data["clock"] = _format_mmss(player_finish * _reveal_fraction())
+	return data
 
 
 func _playback_rows() -> Array[Dictionary]:
@@ -1029,10 +1138,15 @@ func _format_mmss(seconds: float) -> String:
 
 
 func _update_dynamic_labels() -> void:
+	var corner_reveal := (
+		Dock.is_collapsed()
+		and not Dock.is_focus()
+		and Session.phase() == Championship.PHASE_STAGE_REVEAL
+	)
 	if _clock_label != null:
-		_set_text(_clock_label, _clock_text())
+		_set_text(_clock_label, _corner_reveal_clock() if corner_reveal else _clock_text())
 	if _reveal_label != null and Session.phase() == Championship.PHASE_STAGE_REVEAL:
-		_set_text(_reveal_label, _reveal_line())
+		_set_text(_reveal_label, _corner_reveal_line() if corner_reveal else _reveal_line())
 		if _progress_fill != null:
 			_progress_fill.anchor_right = _reveal_fraction()
 
